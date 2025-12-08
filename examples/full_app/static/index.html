@@ -37,9 +37,6 @@
                     <button class="tab-btn" data-tab="workspace">Workspace</button>
                 </div>
                 <div id="files-list" class="file-tree"></div>
-
-                <div class="section-title mt-4">Active Tasks</div>
-                <div id="todos-list" class="todos-list"></div>
             </div>
 
             <div class="sidebar-footer">
@@ -96,6 +93,14 @@
                         <span id="preview-filename">file.py</span>
                     </div>
                     <div class="preview-actions">
+                        <div class="preview-mode-toggle" id="preview-mode-toggle">
+                            <button class="mode-btn active" data-mode="code" onclick="setPreviewMode('code')" title="View code">
+                                <i class="ri-code-s-slash-line"></i>
+                            </button>
+                            <button class="mode-btn" data-mode="preview" onclick="setPreviewMode('preview')" title="Live preview">
+                                <i class="ri-eye-line"></i>
+                            </button>
+                        </div>
                         <button class="preview-btn" onclick="copyFileContent()" title="Copy content">
                             <i class="ri-file-copy-line"></i>
                         </button>

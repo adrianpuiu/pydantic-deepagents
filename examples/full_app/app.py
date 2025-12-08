@@ -126,13 +126,69 @@ MAIN_INSTRUCTIONS = """You are a powerful AI assistant with multiple capabilitie
 4. **Data Analysis**: Load the 'data-analysis' skill for comprehensive CSV analysis
 5. **Entertainment**: Delegate to the 'joke-generator' subagent for humor
 
+## Task Management with TODO List
+
+**IMPORTANT**: You MUST use the TODO list to track your progress on tasks!
+
+When you receive a task:
+1. **First**, use `write_todos` to create a task list breaking down the work into steps
+2. **During work**, update todos as you complete them (mark as "completed") or start them (mark as "in_progress")
+3. **Always** keep exactly ONE todo as "in_progress" at any time
+4. **Mark completed** immediately after finishing each step - don't batch completions
+
+Example workflow:
+```
+User: "Create a script that analyzes sales data"
+
+1. write_todos([
+     {{"content": "Read and understand the data file", "status": "in_progress"}},
+     {{"content": "Write analysis script", "status": "pending"}},
+     {{"content": "Execute and verify results", "status": "pending"}}
+   ])
+2. [Read the file]
+3. write_todos([...first completed, second in_progress...])
+4. [Write the script]
+5. write_todos([...second completed, third in_progress...])
+6. [Execute]
+7. write_todos([...all completed...])
+```
+
+The user can see your TODO list in real-time, so keep it updated!
+
+## Error Handling - BE AUTONOMOUS
+
+**CRITICAL**: When something fails, FIX IT YOURSELF. Do NOT ask the user for permission to fix obvious issues.
+
+Examples of things you should fix automatically WITHOUT asking:
+- Missing Python modules → `pip install <module>` and retry
+- File not found → check the path, create the file if needed
+- Syntax errors in code → fix the code and retry
+- Permission errors → try alternative approaches
+- Command not found → install the tool or use alternatives
+
+**NEVER** say things like:
+- "Would you like me to install...?"
+- "Should I fix this error?"
+- "Do you want me to retry?"
+
+**ALWAYS** just fix the problem and continue. Only ask the user if:
+- You've tried multiple approaches and all failed
+- The error requires a decision about business logic or design
+- You need information only the user can provide (credentials, preferences, etc.)
+
+When you encounter an error:
+1. Analyze what went wrong
+2. Fix it immediately (install packages, correct code, etc.)
+3. Retry the operation
+4. Continue with the task
+
 ## Guidelines
 
 - When asked to analyze data, first load the 'data-analysis' skill for best practices
 - When asked for jokes or entertainment, delegate to the 'joke-generator' subagent
 - For GitHub queries, use the appropriate github_* tools
 - For code execution, write the code to a file first, then execute it
-- Always explain what you're doing before taking actions
+- Briefly explain what you're doing, but don't over-explain
 
 ## File Locations
 
@@ -353,7 +409,7 @@ async def run_agent_with_streaming(
         async for node in run:
             node_count += 1
             logger.debug(f"Node {node_count}: {type(node).__name__}")
-            await process_node(websocket, node, run)
+            await process_node(websocket, node, run, session)
 
         # Get the final result
         result = run.result
@@ -505,7 +561,9 @@ async def _handle_part_delta(
         )
 
 
-async def _stream_tool_calls(websocket: WebSocket, node: Any, run: Any) -> None:
+async def _stream_tool_calls(
+    websocket: WebSocket, node: Any, run: Any, session: UserSession
+) -> None:
     """Stream tool call events from a CallToolsNode."""
     tool_names_by_id: dict[str, str] = {}
 
@@ -544,8 +602,25 @@ async def _stream_tool_calls(websocket: WebSocket, node: Any, run: Any) -> None:
                     }
                 )
 
+                # Send TODO update after write_todos or read_todos
+                if tool_name in ("write_todos", "read_todos"):
+                    await _send_todos_update(websocket, session)
 
-async def process_node(websocket: WebSocket, node: Any, run: Any) -> None:
+
+async def _send_todos_update(websocket: WebSocket, session: UserSession) -> None:
+    """Send current TODO list to frontend."""
+    todos = [todo.model_dump() for todo in session.deps.todos]
+    await websocket.send_json(
+        {
+            "type": "todos_update",
+            "todos": todos,
+        }
+    )
+
+
+async def process_node(
+    websocket: WebSocket, node: Any, run: Any, session: UserSession
+) -> None:
     """Process a node and send appropriate WebSocket events with streaming."""
     if isinstance(node, UserPromptNode):
         logger.debug("  -> UserPromptNode")
@@ -557,7 +632,7 @@ async def process_node(websocket: WebSocket, node: Any, run: Any) -> None:
 
     elif Agent.is_call_tools_node(node):
         logger.debug(f"  -> CallToolsNode with {len(node.model_response.parts)} parts")
-        await _stream_tool_calls(websocket, node, run)
+        await _stream_tool_calls(websocket, node, run, session)
 
     elif isinstance(node, End):
         await websocket.send_json({"type": "status", "content": "Completed!"})
@@ -566,10 +641,14 @@ async def process_node(websocket: WebSocket, node: Any, run: Any) -> None:
 @app.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),  # noqa: B008
-    session_id: str = Query(..., description="Session ID"),
+    session_id: str = Query("", description="Session ID (optional, will create new if not provided)"),
 ):
     """Upload a file (CSV, PDF, etc.) to a specific session."""
     try:
+        # Generate session_id if not provided or empty
+        if not session_id:
+            session_id = str(uuid.uuid4())
+
         # Get or create session
         session = await get_or_create_session(session_id)
 
@@ -691,6 +770,79 @@ async def get_file_content(filepath: str, session_id: str = Query(..., descripti
     except Exception as e:
         if "404" in str(e) or "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=f"File not found: {decoded_path}") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/files/binary/{filepath:path}")
+async def get_file_binary(filepath: str, session_id: str = Query(..., description="Session ID")):
+    """Get binary file content (for images, etc.).
+
+    Args:
+        filepath: Full path to file (e.g., /workspace/chart.png)
+        session_id: Session ID
+    """
+    from fastapi.responses import Response
+
+    if session_id not in user_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = user_sessions[session_id]
+
+    # Decode the path if it was URL-encoded
+    import urllib.parse
+
+    decoded_path = urllib.parse.unquote(filepath)
+
+    # Ensure path starts with /
+    if not decoded_path.startswith("/"):
+        decoded_path = "/" + decoded_path
+
+    logger.debug(f"Reading binary file: {decoded_path} for session {session_id}")
+
+    # Get file extension for content type
+    ext = decoded_path.split(".")[-1].lower()
+    content_types = {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "gif": "image/gif",
+        "svg": "image/svg+xml",
+        "webp": "image/webp",
+        "ico": "image/x-icon",
+        "pdf": "application/pdf",
+    }
+    content_type = content_types.get(ext, "application/octet-stream")
+
+    try:
+        # Read binary file from container using base64
+        if hasattr(session.deps.backend, "execute"):
+            # Use quotes around path to handle spaces
+            result = session.deps.backend.execute(f'base64 "{decoded_path}"')
+            logger.debug(f"base64 command exit code: {result.exit_code}")
+
+            if result.exit_code != 0:
+                logger.error(f"base64 failed: {result.output}")
+                raise HTTPException(status_code=404, detail=f"File not found: {decoded_path}")
+
+            import base64
+
+            # Clean the output - remove any whitespace/newlines that base64 adds
+            b64_output = result.output.strip().replace("\n", "").replace("\r", "").replace(" ", "")
+
+            # Fix padding if needed
+            padding_needed = len(b64_output) % 4
+            if padding_needed:
+                b64_output += "=" * (4 - padding_needed)
+
+            binary_content = base64.b64decode(b64_output)
+            return Response(content=binary_content, media_type=content_type)
+        else:
+            raise HTTPException(status_code=500, detail="Backend does not support binary file reading")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error reading binary file: {decoded_path}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

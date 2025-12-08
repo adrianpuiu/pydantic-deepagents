@@ -19,7 +19,6 @@ const fileInput = document.getElementById('file-input');
 const uploadArea = document.getElementById('upload-area');
 const uploadStatus = document.getElementById('upload-status');
 const filesList = document.getElementById('files-list');
-const todosList = document.getElementById('todos-list');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupResizer();
     connectWebSocket();
     refreshFiles();
-    refreshTodos();
 });
 
 function connectWebSocket() {
@@ -122,10 +120,13 @@ function handleWebSocketMessage(event) {
             }
             break;
 
+        case 'todos_update':
+            handleTodosUpdate(data.todos);
+            break;
+
         case 'done':
             finishMessage();
             refreshFiles();
-            refreshTodos();
             break;
 
         case 'error':
@@ -475,13 +476,12 @@ function setupResizer() {
         isResizing = true;
         resizer.classList.add('active');
         document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none'; // Prevent text selection
+        document.body.style.userSelect = 'none';
     });
 
     document.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
 
-        // Calculate new width (constrain between 200px and 600px)
         let newWidth = e.clientX;
         if (newWidth < 200) newWidth = 200;
         if (newWidth > 600) newWidth = 600;
@@ -499,7 +499,6 @@ function setupResizer() {
     });
 }
 
-// Chat Functions
 function sendMessage() {
     const message = messageInput.value.trim();
     if (!message) return;
@@ -569,7 +568,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// File Functions
 function handleFileSelect(e) {
     const file = e.target.files[0];
     if (file) {
@@ -590,10 +588,14 @@ async function uploadFile(file) {
     }
 
     try {
-        const response = await fetch(url, { method: 'POST', body: formData });
+        const response = await fetch(url, {method: 'POST', body: formData});
         const data = await response.json();
 
         if (response.ok) {
+            if (data.session_id && !sessionId) {
+                sessionId = data.session_id;
+                localStorage.setItem('sessionId', sessionId);
+            }
             uploadStatus.innerHTML = `<i class="ri-check-line"></i> Uploaded: ${data.filename}`;
             uploadStatus.className = 'success';
             refreshFiles();
@@ -614,6 +616,8 @@ async function uploadFile(file) {
     }, 3000);
 }
 
+const expandedFolders = new Set();
+
 async function refreshFiles() {
     if (!sessionId) return;
 
@@ -629,44 +633,175 @@ async function refreshFiles() {
             return;
         }
 
-        filesList.innerHTML = files.map(file => {
-            const name = typeof file === 'string' ? file.split('/').pop() : file;
-            const fullPath = typeof file === 'string' ? file : `/${currentTab}/${file}`;
-            const iconClass = getFileIconClass(name);
-            return `
-                <div class="file-item clickable" onclick="openFilePreview('${escapeHtml(fullPath)}')" title="Click to preview ${fullPath}">
-                    <i class="${iconClass}"></i>
-                    <span>${escapeHtml(name)}</span>
-                </div>
-            `;
-        }).join('');
+        if (currentTab === 'uploads') {
+            filesList.innerHTML = files.map(file => {
+                const name = typeof file === 'string' ? file.split('/').pop() : file;
+                const fullPath = `/uploads/${name}`;
+                const iconClass = getFileIconClass(name);
+                return `
+                    <div class="file-item clickable" onclick="openFilePreview('${escapeHtml(fullPath)}')" title="Click to preview">
+                        <i class="${iconClass}"></i>
+                        <span>${escapeHtml(name)}</span>
+                    </div>
+                `;
+            }).join('');
+            return;
+        }
+
+        const tree = buildFileTree(files);
+        filesList.innerHTML = renderFileTree(tree, 0);
+
     } catch (error) {
         filesList.innerHTML = '<p class="empty-state">Error loading files</p>';
     }
 }
 
-async function refreshTodos() {
-    if (!sessionId) return;
+/**
+ * Build a nested tree structure from flat file paths
+ */
+function buildFileTree(filePaths) {
+    const root = {};
 
-    try {
-        const response = await fetch(`/todos?session_id=${encodeURIComponent(sessionId)}`);
-        if (!response.ok) return;
-        const data = await response.json();
-
-        if (!data.todos || data.todos.length === 0) {
-            todosList.innerHTML = '<p class="empty-state">No todos yet</p>';
-            return;
+    for (const filePath of filePaths) {
+        let normalizedPath = filePath;
+        if (normalizedPath.startsWith('/workspace/')) {
+            normalizedPath = normalizedPath.slice('/workspace/'.length);
+        } else if (normalizedPath.startsWith('/')) {
+            normalizedPath = normalizedPath.slice(1);
         }
 
-        todosList.innerHTML = data.todos.map(todo => `
-            <div class="todo-item">
-                <i class="ri-checkbox-circle-line" style="color:var(--success)"></i>
-                <span>${escapeHtml(todo.content)}</span>
-            </div>
-        `).join('');
-    } catch (error) {
-        todosList.innerHTML = '<p class="empty-state">Error loading todos</p>';
+        const parts = normalizedPath.split('/');
+        let current = root;
+
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            if (!part) continue;
+
+            if (i === parts.length - 1) {
+                current[part] = {__isFile: true, __path: filePath};
+            } else {
+                if (!current[part]) {
+                    current[part] = {};
+                }
+                current = current[part];
+            }
+        }
     }
+
+    return root;
+}
+
+/**
+ * Render file tree as HTML
+ */
+function renderFileTree(node, depth, parentPath = '/workspace') {
+    let html = '';
+    const entries = Object.entries(node).sort((a, b) => {
+        const aIsFile = a[1].__isFile;
+        const bIsFile = b[1].__isFile;
+        if (aIsFile && !bIsFile) return 1;
+        if (!aIsFile && bIsFile) return -1;
+        return a[0].localeCompare(b[0]);
+    });
+
+    for (const [name, value] of entries) {
+        if (name.startsWith('__')) continue;
+
+        const currentPath = `${parentPath}/${name}`;
+        const indent = depth * 12;
+
+        if (value.__isFile) {
+            const iconClass = getFileIconClass(name);
+            html += `
+                <div class="file-item clickable" style="padding-left: ${indent + 8}px"
+                     onclick="openFilePreview('${escapeHtml(value.__path)}')" title="${escapeHtml(value.__path)}">
+                    <i class="${iconClass}"></i>
+                    <span>${escapeHtml(name)}</span>
+                </div>
+            `;
+        } else {
+            const isExpanded = expandedFolders.has(currentPath);
+            const folderIcon = isExpanded ? 'ri-folder-open-line' : 'ri-folder-line';
+            const chevronIcon = isExpanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line';
+
+            html += `
+                <div class="folder-item ${isExpanded ? 'expanded' : ''}" style="padding-left: ${indent + 8}px"
+                     onclick="toggleFolder('${escapeHtml(currentPath)}')">
+                    <i class="folder-chevron ${chevronIcon}"></i>
+                    <i class="folder-icon ${folderIcon}"></i>
+                    <span>${escapeHtml(name)}</span>
+                </div>
+            `;
+
+            if (isExpanded) {
+                html += `<div class="folder-children">`;
+                html += renderFileTree(value, depth + 1, currentPath);
+                html += `</div>`;
+            }
+        }
+    }
+
+    return html;
+}
+
+/**
+ * Toggle folder expanded/collapsed state
+ */
+function toggleFolder(folderPath) {
+    if (expandedFolders.has(folderPath)) {
+        expandedFolders.delete(folderPath);
+    } else {
+        expandedFolders.add(folderPath);
+    }
+    refreshFiles();
+}
+
+let latestTodos = [];
+
+function handleTodosUpdate(todos) {
+    latestTodos = todos || [];
+    if (currentMessageEl) {
+        renderTodosWidget(currentMessageEl, latestTodos);
+    }
+}
+
+function renderTodosWidget(messageEl, todos) {
+    let todosEl = messageEl.querySelector('.message-todos');
+    if (!todosEl) {
+        todosEl = document.createElement('div');
+        todosEl.className = 'message-todos';
+        messageEl.appendChild(todosEl);
+    }
+
+    if (!todos || todos.length === 0) {
+        todosEl.style.display = 'none';
+        return;
+    }
+
+    todosEl.style.display = 'block';
+
+    const completed = todos.filter(t => t.status === 'completed').length;
+    const inProgress = todos.filter(t => t.status === 'in_progress').length;
+    const total = todos.length;
+
+    let html = `<div class="todos-header"><i class="ri-list-check-2"></i> Task Progress <span class="todos-count">${completed}/${total}</span></div>`;
+    html += '<div class="todos-items">';
+
+    for (const todo of todos) {
+        const status = todo.status || 'pending';
+        const iconMap = {
+            'completed': 'ri-checkbox-circle-fill',
+            'in_progress': 'ri-loader-4-line',
+            'pending': 'ri-checkbox-blank-circle-line'
+        };
+        const icon = iconMap[status] || iconMap['pending'];
+        const text = status === 'in_progress' && todo.activeForm ? todo.activeForm : todo.content;
+        html += `<div class="todo-item-inline ${status}"><i class="${icon}"></i><span>${escapeHtml(text)}</span></div>`;
+    }
+
+    html += '</div>';
+    todosEl.innerHTML = html;
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
 async function resetAgent() {
@@ -687,7 +822,6 @@ async function resetAgent() {
         `, 'system');
 
         refreshFiles();
-        refreshTodos();
 
         if (ws) ws.close();
         connectWebSocket();
@@ -704,17 +838,18 @@ function formatBytes(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-// ============================================
-// File Preview Panel & Viewers
-// ============================================
-
 let currentPreviewPath = null;
 let currentPreviewContent = null;
+let currentPreviewMode = 'code';
 
 const filePreviewPanel = document.getElementById('file-preview-panel');
 const previewFilename = document.getElementById('preview-filename');
 const previewContainer = document.getElementById('preview-container');
 const previewIcon = document.getElementById('preview-icon');
+const previewModeToggle = document.getElementById('preview-mode-toggle');
+
+// File types that support live preview
+const PREVIEWABLE_EXTENSIONS = ['html', 'htm', 'svg'];
 
 async function openFilePreview(filePath) {
     if (!sessionId) return;
@@ -728,6 +863,18 @@ async function openFilePreview(filePath) {
 
         filePreviewPanel.classList.remove('hidden');
         previewContainer.innerHTML = '<div style="padding: 20px; color: var(--text-muted);">Loading...</div>';
+
+        // Check if file is previewable and show/hide toggle
+        const ext = filename.split('.').pop().toLowerCase();
+        if (PREVIEWABLE_EXTENSIONS.includes(ext)) {
+            previewModeToggle.classList.add('visible');
+        } else {
+            previewModeToggle.classList.remove('visible');
+            currentPreviewMode = 'code'; // Reset to code mode for non-previewable
+        }
+
+        // Reset toggle state
+        updatePreviewModeButtons();
 
         // Fetch
         const response = await fetch(`/files/content/${encodeURIComponent(filePath)}?session_id=${encodeURIComponent(sessionId)}`);
@@ -748,44 +895,79 @@ async function openFilePreview(filePath) {
     }
 }
 
+/**
+ * Set preview mode (code or preview)
+ */
+function setPreviewMode(mode) {
+    currentPreviewMode = mode;
+    updatePreviewModeButtons();
+
+    if (currentPreviewPath && currentPreviewContent) {
+        const filename = currentPreviewPath.split('/').pop();
+        renderPreview(filename, currentPreviewContent);
+    }
+}
+
+/**
+ * Update toggle button states
+ */
+function updatePreviewModeButtons() {
+    const buttons = previewModeToggle.querySelectorAll('.mode-btn');
+    buttons.forEach(btn => {
+        if (btn.dataset.mode === currentPreviewMode) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+}
+
 function renderPreview(filename, content) {
     const ext = filename.split('.').pop().toLowerCase();
 
-    // 1. Image Preview
-    if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) {
-        // Assuming the backend doesn't return Base64 in content, but we can display via URL?
-        // Since the current backend returns "content", it works best for text files.
-        // For now, let's treat images as a placeholder or check if content is base64.
-        previewContainer.innerHTML = `<div style="display:flex; justify-content:center; align-items:center; height:100%;">
-            <p style="color:var(--text-muted)">Image preview requires binary endpoint</p>
-        </div>`;
+    // 1. Live Preview mode for HTML/SVG
+    if (currentPreviewMode === 'preview' && PREVIEWABLE_EXTENSIONS.includes(ext)) {
+        renderLivePreview(content, ext);
         return;
     }
 
-    // 2. CSV Reader
+    // 2. Image Preview (binary)
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico'].includes(ext)) {
+        const imageUrl = `/files/binary/${encodeURIComponent(currentPreviewPath)}?session_id=${encodeURIComponent(sessionId)}`;
+        previewContainer.innerHTML = `
+            <div style="display:flex; justify-content:center; align-items:center; height:100%; padding:20px; background:#1a1a1a;">
+                <img src="${imageUrl}" alt="${escapeHtml(filename)}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:4px;">
+            </div>
+        `;
+        return;
+    }
+
+    // 3. SVG - can render directly (text-based)
+    if (ext === 'svg' && currentPreviewMode === 'code') {
+        // Show code, preview handled above
+    }
+
+    // 4. CSV Reader
     if (ext === 'csv') {
         const tableHtml = parseCSVtoTable(content);
         previewContainer.innerHTML = `<div class="csv-container">${tableHtml}</div>`;
         return;
     }
 
-    // 3. PDF Reader (Simple Embed)
+    // 5. PDF Reader (Simple Embed)
     if (ext === 'pdf') {
-        // We attempt to construct a path. If the backend serves static files, this works.
-        // Otherwise, we can't display it purely from the 'content' text string unless it's base64.
-        // We will assume standard path access for the demo.
-        // Hack: create a temporary blob if content implies binary, but usually content is just text here.
         previewContainer.innerHTML = `
             <embed class="embed-container" src="/files/download/${encodeURIComponent(currentPreviewPath)}?session_id=${sessionId}" type="application/pdf">
         `;
         return;
     }
 
-    // 4. Code / Text (PrismJS)
+    // 6. Code / Text (PrismJS)
     const languageMap = {
         'js': 'javascript', 'py': 'python', 'rs': 'rust', 'html': 'html',
         'css': 'css', 'json': 'json', 'md': 'markdown', 'sh': 'bash',
-        'ts': 'typescript', 'go': 'go', 'java': 'java', 'cpp': 'cpp'
+        'ts': 'typescript', 'go': 'go', 'java': 'java', 'cpp': 'cpp',
+        'htm': 'html', 'svg': 'xml'
     };
 
     const lang = languageMap[ext] || 'none';
@@ -802,6 +984,54 @@ function renderPreview(filename, content) {
     // Trigger highlighting
     if (window.Prism) {
         Prism.highlightElement(code);
+    }
+}
+
+/**
+ * Render live preview of HTML/SVG in an iframe
+ */
+function renderLivePreview(content, ext) {
+    const iframe = document.createElement('iframe');
+    iframe.className = 'live-preview-frame';
+    iframe.sandbox = 'allow-scripts allow-same-origin'; // Security: sandboxed iframe
+
+    previewContainer.innerHTML = '';
+    previewContainer.appendChild(iframe);
+
+    // Write content to iframe
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+    if (ext === 'svg') {
+        // Wrap SVG in a basic HTML document with centered display
+        iframeDoc.open();
+        iframeDoc.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {
+                        margin: 0;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                        background: #1a1a1a;
+                    }
+                    svg {
+                        max-width: 90%;
+                        max-height: 90vh;
+                    }
+                </style>
+            </head>
+            <body>${content}</body>
+            </html>
+        `);
+        iframeDoc.close();
+    } else {
+        // HTML - render as-is
+        iframeDoc.open();
+        iframeDoc.write(content);
+        iframeDoc.close();
     }
 }
 
@@ -899,7 +1129,7 @@ async function copyFileContent() {
 function downloadPreviewFile() {
     if (!currentPreviewPath || !currentPreviewContent) return;
     const filename = currentPreviewPath.split('/').pop();
-    const blob = new Blob([currentPreviewContent], { type: 'text/plain' });
+    const blob = new Blob([currentPreviewContent], {type: 'text/plain'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
