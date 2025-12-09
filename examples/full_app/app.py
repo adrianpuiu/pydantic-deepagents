@@ -973,7 +973,19 @@ async def preview_file(session_id: str, filepath: str):
     content_type = content_types.get(ext, "application/octet-stream")
 
     # Check if binary file
-    binary_extensions = {"png", "jpg", "jpeg", "gif", "webp", "ico", "pdf", "woff", "woff2", "ttf", "eot"}
+    binary_extensions = {
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+        "webp",
+        "ico",
+        "pdf",
+        "woff",
+        "woff2",
+        "ttf",
+        "eot",
+    }
     is_binary = ext in binary_extensions
 
     try:
@@ -986,7 +998,9 @@ async def preview_file(session_id: str, filepath: str):
 
                 import base64
 
-                b64_output = result.output.strip().replace("\n", "").replace("\r", "").replace(" ", "")
+                b64_output = (
+                    result.output.strip().replace("\n", "").replace("\r", "").replace(" ", "")
+                )
                 padding_needed = len(b64_output) % 4
                 if padding_needed:
                     b64_output += "=" * (4 - padding_needed)
