@@ -8,6 +8,12 @@
 
 Deep agent framework built on [pydantic-ai](https://github.com/pydantic/pydantic-ai) with planning, filesystem, and subagent capabilities.
 
+## Demo
+
+<iframe src="https://drive.google.com/file/d/1hqgXkbAgUrsKOWpfWdF48cqaxRht-8od/preview" width="640" height="480" allow="autoplay"></iframe>
+
+See the [full demo application](https://github.com/vstorm-co/pydantic-deepagents/tree/main/examples/full_app) - a complete example showing how to build a chat interface with file uploads, skills, and streaming responses.
+
 ## Features
 
 - **Multiple Backends**: StateBackend (in-memory), FilesystemBackend, DockerSandbox, CompositeBackend
