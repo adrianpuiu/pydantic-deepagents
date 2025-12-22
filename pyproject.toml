@@ -31,6 +31,18 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.0",
+    "fastapi>=0.125.0",
+    "uvicorn>=0.38.0",
+    "python-multipart>=0.0.21",
+    "pre-commit>=4.5.1",
+    "pdfplumber>=0.11.0",
+    "pypdf>=5.1.0",
+    "pillow>=10.0.0",
+    "docker>=7.1.0",
+    "chardet>=5.2.0",
+    "pypdf2>=3.0.1",
+    "ruff>=0.14.9",
+    "pyright>=1.1.407",
 ]
 
 [project.optional-dependencies]

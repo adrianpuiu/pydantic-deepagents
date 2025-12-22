@@ -43,7 +43,7 @@ class BackendProtocol(Protocol):
         """
         ...
 
-    def write(self, path: str, content: str) -> WriteResult:
+    def write(self, path: str, content: str | bytes) -> WriteResult:
         """Write content to a file.
 
         Args:

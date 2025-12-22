@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import io
+import shlex
 import tarfile
 import time
 import uuid
 from abc import ABC, abstractmethod
-from pathlib import PurePosixPath
+from io import BytesIO
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
+
+import chardet
+import PyPDF2
 
 from pydantic_deep.types import (
     EditResult,
@@ -97,6 +102,7 @@ class BaseSandbox(ABC):
         start = offset + 1  # sed is 1-indexed
         end = offset + limit
 
+        path = shlex.quote(path)
         result = self.execute(f"sed -n '{start},{end}p' {path} | cat -n")
 
         if result.exit_code != 0:
@@ -154,6 +160,7 @@ class BaseSandbox(ABC):
         old_escaped = old_string.replace("/", "\\/").replace("&", "\\&")
         new_escaped = new_string.replace("/", "\\/").replace("&", "\\&")
 
+        path = shlex.quote(path)
         if replace_all:
             result = self.execute(f"sed -i 's/{old_escaped}/{new_escaped}/g' {path}")
         else:
@@ -480,7 +487,194 @@ class DockerSandbox(BaseSandbox):  # pragma: no cover
                 truncated=False,
             )
 
-    def write(self, path: str, content: str) -> WriteResult:
+    def read(self, path: str, offset: int = 0, limit: int = 2000) -> str:
+        """
+        Read file from container using Docker get_archive API.
+
+        Args:
+            path: Path to the file in the container.
+            offset: Start character index (for pagination).
+            limit: Maximum characters to return.
+        """
+        self._ensure_container()
+        assert self._container is not None
+
+        try:
+            stream, stat = self._container.get_archive(path)
+
+            # Reassemble the tar byte stream into memory
+            raw_tar_bytes = b"".join(stream)
+
+            # Extract the file content
+            with (
+                io.BytesIO(raw_tar_bytes) as tar_buffer,
+                tarfile.open(fileobj=tar_buffer, mode="r") as tar,
+            ):
+                member = next((m for m in tar.getmembers() if m.isfile()), None)
+
+                if not member:
+                    return f"[Error: Path '{path}' exists but is empty or not a file.]"
+
+                f = tar.extractfile(member)
+                if f is None:
+                    return "[Error: Could not extract file stream from archive]"
+
+                file_bytes = f.read()
+
+            # Convert bytes to string
+            file_ext = Path(path).suffix.lower().lstrip(".")
+            full_text = self._convert_bytes_to_text(file_ext, file_bytes)
+
+            # Paginate output
+            if offset >= len(full_text):
+                return "[End of file]"
+
+            end_index = offset + limit
+            chunk = full_text[offset:end_index]
+
+            if end_index < len(full_text):
+                remaining = len(full_text) - end_index
+                footer = f"\n\n[... {remaining} more chars. Use offset={end_index} to read more.]"
+                return chunk + footer
+
+            return chunk
+
+        except Exception as e:
+            return f"[Error reading file: {e}]"
+
+    def _convert_bytes_to_text(self, file_ext: str, file_bytes: bytes) -> str:
+        # Plain text files with encoding detection
+        if file_ext in ("txt", "log", "md", "json", "xml", "csv", "yaml", "yml"):
+            return self._decode_text(file_bytes)
+
+        # PDF files
+        elif file_ext == "pdf":
+            return self._extract_pdf_text(file_bytes)
+
+        # Code files
+        elif file_ext in (
+            "py",
+            "js",
+            "java",
+            "cpp",
+            "c",
+            "h",
+            "cs",
+            "rb",
+            "go",
+            "rs",
+            "php",
+            "html",
+            "css",
+            "sh",
+            "sql",
+            "ts",
+            "jsx",
+            "tsx",
+        ):
+            return self._decode_text(file_bytes)
+
+        else:
+            raise ValueError(f"Unsupported file type: .{file_ext}")
+
+    def _decode_text(self, file_bytes: bytes) -> str:
+        # Use chardet to detect encoding with confidence
+        detection = chardet.detect(file_bytes)
+        detected_encoding = detection.get("encoding")
+        confidence = detection.get("confidence", 0)
+
+        # If high confidence detection, use it
+        if detected_encoding and confidence > 0.7:
+            try:
+                return file_bytes.decode(detected_encoding)
+            except (UnicodeDecodeError, AttributeError, LookupError):
+                pass  # Fall through to manual attempts
+
+        # Fallback to common encodings if detection failed or low confidence
+        encodings = ["utf-8", "utf-8-sig", "latin-1", "cp1252", "iso-8859-1"]
+
+        # Add detected encoding to the front if not already there
+        if detected_encoding and detected_encoding not in encodings:
+            encodings.insert(0, detected_encoding)
+
+        for encoding in encodings:
+            try:
+                return file_bytes.decode(encoding)
+            except (UnicodeDecodeError, AttributeError, LookupError):
+                continue
+
+        # Last resort: decode with errors='replace' to avoid complete failure
+        return file_bytes.decode("utf-8", errors="replace")
+
+    def _extract_pdf_text(self, file_bytes: bytes) -> str:
+        try:
+            pdf_file = BytesIO(file_bytes)
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+
+            if len(pdf_reader.pages) == 0:
+                raise ValueError("PDF contains no pages")
+
+            # Extract metadata for context
+            metadata = pdf_reader.metadata
+            text_parts = []
+
+            if metadata:
+                if metadata.get("/Title"):
+                    text_parts.append(f"Title: {metadata['/Title']}\n")
+                if metadata.get("/Author"):
+                    text_parts.append(f"Author: {metadata['/Author']}\n")
+                if metadata.get("/Subject"):
+                    text_parts.append(f"Subject: {metadata['/Subject']}\n")
+                text_parts.append("\n")
+
+            # Extract text from each page with clear separators
+            for page_num, page in enumerate(pdf_reader.pages, 1):
+                page_text = page.extract_text()
+
+                if page_text and page_text.strip():
+                    # Clean up common PDF artifacts
+                    page_text = self._clean_pdf_text(page_text)
+                    text_parts.append(f"--- Page {page_num} ---\n")
+                    text_parts.append(page_text)
+                    text_parts.append("\n\n")
+
+            full_text = "".join(text_parts).strip()
+
+            if not full_text:
+                raise ValueError("No extractable text found in PDF")
+
+            return full_text
+
+        except Exception as e:
+            raise ValueError(f"Failed to parse PDF: {str(e)}") from e
+
+    def _clean_pdf_text(self, text: str) -> str:
+        """
+        Clean common PDF text extraction artifacts for better LLM processing.
+
+        Args:
+            text: Raw extracted text
+
+        Returns:
+            Cleaned text
+        """
+        import re
+
+        # Remove excessive whitespace while preserving paragraph breaks
+        text = re.sub(r" +", " ", text)  # Multiple spaces to single space
+        text = re.sub(r"\n ", "\n", text)  # Remove leading spaces on lines
+        text = re.sub(r" \n", "\n", text)  # Remove trailing spaces on lines
+        text = re.sub(r"\n{3,}", "\n\n", text)  # Max 2 consecutive newlines
+
+        # Fix common hyphenation issues at line breaks
+        text = re.sub(r"(\w+)-\n(\w+)", r"\1\2", text)
+
+        # Remove form feed characters
+        text = text.replace("\f", "\n")
+
+        return text.strip()
+
+    def write(self, path: str, content: str | bytes) -> WriteResult:
         """Write file to container using Docker put_archive API.
 
         This method uses Docker's put_archive() instead of heredoc to handle
@@ -488,7 +682,7 @@ class DockerSandbox(BaseSandbox):  # pragma: no cover
 
         Args:
             path: Absolute path where the file should be written.
-            content: File content as string.
+            content: File content as string or bytes.
 
         Returns:
             WriteResult with path on success, or error message on failure.
@@ -508,18 +702,18 @@ class DockerSandbox(BaseSandbox):  # pragma: no cover
                 return WriteResult(error=f"Failed to create directory: {mkdir_result.output}")
 
             # Create tar archive in memory
-            content_bytes = content.encode("utf-8")
+            content = content if isinstance(content, bytes) else content.encode()
             tar_buffer = io.BytesIO()
 
             with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
                 # Create TarInfo for the file
                 tarinfo = tarfile.TarInfo(name=filename)
-                tarinfo.size = len(content_bytes)
+                tarinfo.size = len(content)
                 tarinfo.mtime = int(time.time())
                 tarinfo.mode = 0o644
 
                 # Add file to archive
-                tar.addfile(tarinfo, io.BytesIO(content_bytes))
+                tar.addfile(tarinfo, io.BytesIO(content))
 
             # Reset buffer position
             tar_buffer.seek(0)
