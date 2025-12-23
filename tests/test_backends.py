@@ -378,8 +378,8 @@ class TestFilesystemBackend:
         assert "Single quote" in content
 
         # Test editing file with spaces
-        result = backend.edit("/file with spaces.txt", "Content", "Modified")
-        assert result.error is None
+        edit_result = backend.edit("/file with spaces.txt", "Content", "Modified")
+        assert edit_result.error is None
         content = backend.read("/file with spaces.txt")
         assert "Modified with spaces" in content
 
@@ -527,12 +527,12 @@ class TestCompositeBackend:
         assert (tmp_path / "default" / "report (final) [v2.1].txt").exists()
 
         # Test editing files with special names across backends
-        result = composite.edit("/file with spaces.txt", "default", "modified")
-        assert result.error is None
+        edit_result = composite.edit("/file with spaces.txt", "default", "modified")
+        assert edit_result.error is None
         assert "modified backend" in composite.read("/file with spaces.txt")
 
-        result = composite.edit("/special/file with spaces.txt", "routed", "updated")
-        assert result.error is None
+        edit_result = composite.edit("/special/file with spaces.txt", "routed", "updated")
+        assert edit_result.error is None
         assert "updated backend" in composite.read("/special/file with spaces.txt")
 
         # Binary files with special names in different backends
