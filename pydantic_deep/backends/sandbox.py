@@ -547,8 +547,8 @@ class DockerSandbox(BaseSandbox):  # pragma: no cover
 
         Args:
             path: Path to the file in the container.
-            offset: Start character index (for pagination).
-            limit: Maximum characters to return.
+            offset: Start line index (for pagination).
+            limit: Maximum number of lines to return.
         """
         try:
             # Read raw bytes from file
@@ -558,16 +558,20 @@ class DockerSandbox(BaseSandbox):  # pragma: no cover
             file_ext = Path(path).suffix.lower().lstrip(".")
             full_text = self._convert_bytes_to_text(file_ext, file_bytes)
 
-            # Paginate output
-            if offset >= len(full_text):
+            # Split into lines
+            lines = full_text.splitlines()
+            total_lines = len(lines)
+
+            if offset >= total_lines:
                 return "[End of file]"
 
             end_index = offset + limit
-            chunk = full_text[offset:end_index]
+            chunk_lines = lines[offset:end_index]
+            chunk = "\n".join(chunk_lines)
 
-            if end_index < len(full_text):
-                remaining = len(full_text) - end_index
-                footer = f"\n\n[... {remaining} more chars. Use offset={end_index} to read more.]"
+            if end_index < total_lines:
+                remaining = total_lines - end_index
+                footer = f"\n\n[... {remaining} more lines. Use offset={end_index} to read more.]"
                 return chunk + footer
 
             return chunk
