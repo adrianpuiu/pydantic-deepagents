@@ -22,7 +22,7 @@ sandbox.stop()
 
 ## RuntimeConfig
 
-The [`RuntimeConfig`][pydantic_deep.types.RuntimeConfig] class defines a pre-configured execution environment.
+The `RuntimeConfig` class defines a pre-configured execution environment.
 
 ### Using Built-in Runtimes
 
@@ -93,7 +93,7 @@ RuntimeConfig(
 
 ## SessionManager
 
-For multi-user applications, use [`SessionManager`][pydantic_deep.session.SessionManager] to manage isolated containers per user.
+For multi-user applications, use `SessionManager` to manage isolated containers per user.
 
 ### Basic Usage
 

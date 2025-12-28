@@ -2,6 +2,9 @@
 
 pydantic-deep supports history processors for managing conversation context. The most common use case is automatic summarization to handle long conversations without exceeding token limits.
 
+!!! info "Coming to pydantic-ai"
+    This feature will be added to pydantic-ai core in late January 2025 ([pydantic-ai#3780](https://github.com/pydantic/pydantic-ai/pull/3780)). Once available, we will migrate to use the upstream implementation. The API will remain compatible.
+
 ## Summarization Processor
 
 The `SummarizationProcessor` monitors conversation length and automatically summarizes older messages when thresholds are reached.

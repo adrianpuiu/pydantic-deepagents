@@ -94,7 +94,7 @@ Isolated execution environment using Docker containers.
     Make sure Docker is installed and running.
 
 ```python
-from pydantic_deep.backends.sandbox import DockerSandbox
+from pydantic_deep import DockerSandbox
 
 sandbox = DockerSandbox(
     image="python:3.12-slim",

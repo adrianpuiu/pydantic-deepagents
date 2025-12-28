@@ -102,6 +102,25 @@ agent = create_deep_agent(
 | **Context Management** | Automatic conversation summarization for long sessions |
 | **HITL** | Human-in-the-loop approval workflows |
 
+## Modular Architecture
+
+pydantic-deep is built with modular, reusable components that can be used independently:
+
+| Component | Package | Description |
+|-----------|---------|-------------|
+| **Backends** | [pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend) | File storage and Docker sandbox |
+| **Todo Toolset** | [pydantic-ai-todo](https://github.com/vstorm-co/pydantic-ai-todo) | Task planning and tracking |
+| **Summarization** | Built-in | Automatic context management* |
+
+*\*Note: Summarization will be added to pydantic-ai core in late January 2025 ([pydantic-ai#3780](https://github.com/pydantic/pydantic-ai/pull/3780)). We will migrate to use it once available.*
+
+## Related Projects
+
+- **[pydantic-ai](https://github.com/pydantic/pydantic-ai)** - The foundation: Agent framework by Pydantic
+- **[pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend)** - File storage and sandbox backends (extracted from pydantic-deep)
+- **[pydantic-ai-todo](https://github.com/vstorm-co/pydantic-ai-todo)** - Task planning toolset (extracted from pydantic-deep)
+- **[fastapi-fullstack](https://github.com/vstorm-co/full-stack-fastapi-nextjs-llm-template)** - Full-stack AI app template with pydantic-deep
+
 ## llms.txt
 
 pydantic-deep supports the [llms.txt](https://llmstxt.org/) standard. Access documentation at `/llms.txt` for LLM-optimized content.

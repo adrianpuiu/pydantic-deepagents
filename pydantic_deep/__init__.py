@@ -57,6 +57,7 @@ from pydantic_ai_backends import (
     FileInfo,
     FilesystemBackend,
     GrepMatch,
+    LocalSandbox,
     RuntimeConfig,
     SandboxProtocol,
     SessionManager,
@@ -99,6 +100,7 @@ __all__ = [
     "CompositeBackend",
     "BaseSandbox",
     "DockerSandbox",
+    "LocalSandbox",
     # Runtimes
     "RuntimeConfig",
     "BUILTIN_RUNTIMES",

@@ -7,7 +7,7 @@ Complete API documentation for pydantic-deep.
 | Module | Description |
 |--------|-------------|
 | [`pydantic_deep.agent`](agent.md) | Agent factory and configuration |
-| [`pydantic_deep.backends`](backends.md) | Storage backends |
+| [Backends](backends.md) | Storage backends (via [pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend)) |
 | [`pydantic_deep.toolsets`](toolsets.md) | Tool collections |
 | [`pydantic_deep.processors`](processors.md) | History processors |
 | [`pydantic_deep.types`](types.md) | Type definitions |

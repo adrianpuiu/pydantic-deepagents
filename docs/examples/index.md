@@ -8,7 +8,7 @@ All examples are in the `examples/` directory:
 
 ```bash
 # Set your API key
-export ANTHROPIC_API_KEY=your-api-key
+export OPENAI_API_KEY=your-api-key  # or ANTHROPIC_API_KEY
 
 # Run an example
 uv run python examples/<example_name>.py
@@ -19,33 +19,81 @@ uv run python examples/<example_name>.py
 <div class="feature-grid">
 
 <div class="feature-card">
-<h3>📖 Basic Usage</h3>
+<h3>:material-rocket-launch: Basic Usage</h3>
 <p>Getting started with pydantic-deep. Create agents, use todos, work with files.</p>
 <a href="basic-usage/">View Example →</a>
 </div>
 
 <div class="feature-card">
-<h3>📁 Filesystem</h3>
-<p>Real filesystem operations with FilesystemBackend and CompositeBackend.</p>
+<h3>:material-folder: Filesystem</h3>
+<p>Real filesystem operations with FilesystemBackend.</p>
 <a href="filesystem/">View Example →</a>
 </div>
 
 <div class="feature-card">
-<h3>🎯 Skills</h3>
+<h3>:material-layers: Composite Backend</h3>
+<p>Combine multiple backends with path-based routing.</p>
+<a href="composite-backend/">View Example →</a>
+</div>
+
+<div class="feature-card">
+<h3>:material-target: Skills</h3>
 <p>Modular capability packages with progressive disclosure.</p>
 <a href="skills/">View Example →</a>
 </div>
 
 <div class="feature-card">
-<h3>🐳 Docker Sandbox</h3>
+<h3>:material-account-group: Subagents</h3>
+<p>Delegate specialized tasks to subagents.</p>
+<a href="subagents/">View Example →</a>
+</div>
+
+<div class="feature-card">
+<h3>:material-wrench: Custom Tools</h3>
+<p>Add your own tools alongside built-in toolsets.</p>
+<a href="custom-tools/">View Example →</a>
+</div>
+
+<div class="feature-card">
+<h3>:material-upload: File Uploads</h3>
+<p>Upload files for agent processing with run_with_files() or deps.upload_file().</p>
+<a href="file-uploads/">View Example →</a>
+</div>
+
+<div class="feature-card">
+<h3>:material-docker: Docker Sandbox</h3>
 <p>Isolated code execution in Docker containers.</p>
 <a href="docker-sandbox/">View Example →</a>
 </div>
 
 <div class="feature-card">
-<h3>📤 File Uploads</h3>
-<p>Upload files for agent processing with run_with_files() or deps.upload_file().</p>
-<a href="file-uploads/">View Example →</a>
+<h3>:material-cog: Docker Runtimes</h3>
+<p>Pre-configured execution environments with RuntimeConfig.</p>
+<a href="docker-runtimes/">View Example →</a>
+</div>
+
+<div class="feature-card">
+<h3>:material-play-speed: Streaming</h3>
+<p>Real-time output with agent.iter() for progress tracking.</p>
+<a href="streaming/">View Example →</a>
+</div>
+
+<div class="feature-card">
+<h3>:material-shield-check: Human-in-the-Loop</h3>
+<p>Approval workflows for sensitive operations.</p>
+<a href="human-in-the-loop/">View Example →</a>
+</div>
+
+<div class="feature-card">
+<h3>:material-chat: Interactive Chat</h3>
+<p>CLI chatbot with streaming and tool visibility.</p>
+<a href="interactive-chat/">View Example →</a>
+</div>
+
+<div class="feature-card">
+<h3>:material-star: Full Application</h3>
+<p>Complete FastAPI app with WebSocket streaming, Docker, uploads, and more.</p>
+<a href="full-app/">View Example →</a>
 </div>
 
 </div>
@@ -178,20 +226,22 @@ async def main():
     result = await agent.run("Test prompt", deps=deps)
 ```
 
-## Example Files
+## Example Files Reference
 
-| File | Description |
-|------|-------------|
-| `basic_usage.py` | Core functionality demonstration |
-| `filesystem_backend.py` | Real filesystem operations |
-| `subagents.py` | Task delegation |
-| `human_in_the_loop.py` | Approval workflows |
-| `docker_sandbox.py` | Isolated execution |
-| `composite_backend.py` | Mixed storage strategies |
-| `streaming.py` | Real-time output |
-| `custom_tools.py` | Adding custom tools |
-| `skills_usage.py` | Skills system |
-| `file_uploads.py` | File uploads for agent processing |
+| File | Description | Docs Page |
+|------|-------------|-----------|
+| `basic_usage.py` | Core functionality demonstration | [Basic Usage](basic-usage.md) |
+| `filesystem_backend.py` | Real filesystem operations | [Filesystem](filesystem.md) |
+| `composite_backend.py` | Mixed storage strategies | [Composite Backend](composite-backend.md) |
+| `skills_usage.py` | Skills system | [Skills](skills.md) |
+| `subagents.py` | Task delegation | [Subagents](subagents.md) |
+| `custom_tools.py` | Adding custom tools | [Custom Tools](custom-tools.md) |
+| `file_uploads.py` | File uploads for agent processing | [File Uploads](file-uploads.md) |
+| `docker_sandbox.py` | Isolated execution | [Docker Sandbox](docker-sandbox.md) |
+| `streaming.py` | Real-time output | [Streaming](streaming.md) |
+| `human_in_the_loop.py` | Approval workflows | [Human-in-the-Loop](human-in-the-loop.md) |
+| `interactive_chat.py` | CLI chatbot | [Interactive Chat](interactive-chat.md) |
+| `full_app/` | Complete FastAPI application | [Full App](full-app.md) |
 
 ## Next Steps
 

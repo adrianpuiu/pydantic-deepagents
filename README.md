@@ -24,14 +24,26 @@ See the [full demo application](https://github.com/vstorm-co/pydantic-deepagents
 
 ## Features
 
-- **Multiple Backends**: StateBackend (in-memory), FilesystemBackend, DockerSandbox, CompositeBackend
-- **Rich Toolsets**: TodoToolset, FilesystemToolset, SubAgentToolset, SkillsToolset
+- **Multiple Backends**: StateBackend (in-memory), FilesystemBackend, DockerSandbox, CompositeBackend - via [pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend)
+- **Rich Toolsets**: TodoToolset (via [pydantic-ai-todo](https://github.com/vstorm-co/pydantic-ai-todo)), FilesystemToolset, SubAgentToolset, SkillsToolset
 - **File Uploads**: Upload files for agent processing with `run_with_files()` or `deps.upload_file()`
 - **Skills System**: Extensible skill definitions with markdown prompts
 - **Structured Output**: Type-safe responses with Pydantic models via `output_type`
 - **Context Management**: Automatic conversation summarization for long sessions
 - **Human-in-the-Loop**: Built-in support for human confirmation workflows
 - **Streaming**: Full streaming support for agent responses
+
+## Modular Architecture
+
+pydantic-deep is built with modular, reusable components:
+
+| Component | Package | Description |
+|-----------|---------|-------------|
+| **Backends** | [pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend) | File storage and Docker sandbox |
+| **Todo Toolset** | [pydantic-ai-todo](https://github.com/vstorm-co/pydantic-ai-todo) | Task planning and tracking |
+| **Summarization** | Built-in | Automatic context management* |
+
+*\*Note: Summarization will be added to pydantic-ai core in late January 2025 ([pydantic-ai#3780](https://github.com/pydantic/pydantic-ai/pull/3780)). We will migrate to use it once available.*
 
 ## Installation
 
@@ -56,8 +68,8 @@ pip install pydantic-deep[sandbox]
 
 ```python
 import asyncio
+from pydantic_ai_backends import StateBackend
 from pydantic_deep import create_deep_agent, create_default_deps
-from pydantic_deep.backends import StateBackend
 
 async def main():
     # Create a deep agent with state backend
@@ -97,8 +109,8 @@ print(result.output.priority)  # Type-safe access
 Process user-uploaded files with the agent:
 
 ```python
+from pydantic_ai_backends import StateBackend
 from pydantic_deep import create_deep_agent, DeepAgentDeps, run_with_files
-from pydantic_deep.backends import StateBackend
 
 agent = create_deep_agent()
 deps = DeepAgentDeps(backend=StateBackend())
@@ -136,6 +148,8 @@ processor = create_summarization_processor(
 agent = create_deep_agent(history_processors=[processor])
 ```
 
+> **Note:** This feature will be added to pydantic-ai core in late January 2025 ([pydantic-ai#3780](https://github.com/pydantic/pydantic-ai/pull/3780)). Once available, we will migrate to use the upstream implementation.
+
 ## Documentation
 
 - **[Full Documentation](https://vstorm-co.github.io/pydantic-deepagents/)** - Complete guides and API reference
@@ -148,6 +162,13 @@ agent = create_deep_agent(history_processors=[processor])
 - [Core Concepts](https://vstorm-co.github.io/pydantic-deepagents/concepts/)
 - [Examples](https://vstorm-co.github.io/pydantic-deepagents/examples/)
 - [API Reference](https://vstorm-co.github.io/pydantic-deepagents/api/)
+
+## Related Projects
+
+- **[pydantic-ai](https://github.com/pydantic/pydantic-ai)** - The foundation: Agent framework by Pydantic
+- **[pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend)** - File storage and sandbox backends (extracted from pydantic-deep)
+- **[pydantic-ai-todo](https://github.com/vstorm-co/pydantic-ai-todo)** - Task planning toolset (extracted from pydantic-deep)
+- **[fastapi-fullstack](https://github.com/vstorm-co/full-stack-fastapi-nextjs-llm-template)** - Full-stack AI app template with pydantic-deep
 
 ## Development
 

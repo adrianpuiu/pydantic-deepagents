@@ -94,12 +94,23 @@ nav:
       - advanced/processors.md
   - Examples:
     - examples/index.md
-    - examples/basic-usage.md
-    - examples/filesystem.md
-    - examples/file-uploads.md
-    - examples/skills.md
-    - examples/docker-sandbox.md
-    - examples/docker-runtimes.md
+    - Getting Started:
+      - examples/basic-usage.md
+      - examples/filesystem.md
+      - examples/composite-backend.md
+    - Agent Features:
+      - examples/subagents.md
+      - examples/custom-tools.md
+      - examples/skills.md
+      - examples/file-uploads.md
+    - Execution:
+      - examples/docker-sandbox.md
+      - examples/docker-runtimes.md
+      - examples/streaming.md
+      - examples/human-in-the-loop.md
+    - Applications:
+      - examples/interactive-chat.md
+      - examples/full-app.md
   - API Reference:
     - api/index.md
     - api/agent.md

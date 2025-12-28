@@ -43,8 +43,7 @@ DockerSandbox provides:
 
 import asyncio
 
-from pydantic_deep import create_deep_agent, DeepAgentDeps
-from pydantic_deep.backends.sandbox import DockerSandbox
+from pydantic_deep import DockerSandbox, DeepAgentDeps, create_deep_agent
 
 
 async def main():
@@ -243,7 +242,7 @@ finally:
 For development/testing without Docker:
 
 ```python
-from pydantic_deep.backends.sandbox import LocalSandbox
+from pydantic_deep import LocalSandbox
 
 # Executes on local machine (DANGEROUS in production!)
 sandbox = LocalSandbox(work_dir="/tmp/workspace")

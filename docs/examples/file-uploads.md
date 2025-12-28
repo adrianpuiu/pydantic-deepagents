@@ -23,8 +23,7 @@ The simplest way to process files:
 
 ```python
 import asyncio
-from pydantic_deep import create_deep_agent, DeepAgentDeps, run_with_files
-from pydantic_deep.backends import StateBackend
+from pydantic_deep import create_deep_agent, DeepAgentDeps, run_with_files, StateBackend
 
 async def main():
     agent = create_deep_agent()
