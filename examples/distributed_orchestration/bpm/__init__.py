@@ -6,6 +6,7 @@ This package provides Business Process Management capabilities including:
 - Business rules engine
 - SLA tracking and escalations
 - Immutable audit trail for compliance
+- BPMN diagram generation from natural language
 """
 
 from .approval_engine import (
@@ -30,6 +31,7 @@ from .business_rules import (
     category_equals,
     not_condition,
 )
+from .diagram_generator import DiagramGenerator, render_diagram
 from .sla_tracker import (
     SLADefinition,
     SLAInstance,
@@ -83,4 +85,7 @@ __all__ = [
     "AuditTrail",
     "AuditEvent",
     "AuditEventType",
+    # Diagram Generation
+    "DiagramGenerator",
+    "render_diagram",
 ]
