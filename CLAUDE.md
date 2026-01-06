@@ -254,7 +254,16 @@ The distributed orchestration example (`examples/distributed_orchestration/`) de
 - Custom worker configurations for different domains (e-commerce, data science, DevOps)
 - Task priority and status tracking
 - Dynamic worker management
-- Real-world scenarios (building a complete REST API)
+- Real-world use cases (see `real_world_examples/` subdirectory)
+
+**Real-World Use Cases** (`examples/distributed_orchestration/real_world_examples/`):
+- `data_pipeline_etl.py`: ETL workflow for sales data processing (15-30x speedup)
+- `code_migration.py`: Python 2.7 to 3.12 migration pipeline (10-20x speedup)
+- `content_generation_pipeline.py`: Multi-stage editorial workflow (10x speedup)
+- `security_audit_pipeline.py`: Comprehensive security assessment (20-40x speedup)
+- `ml_model_pipeline.py`: Complete ML model development lifecycle (7-14x speedup)
+
+Each example includes specialized worker configurations, multi-phase pipelines, parallel execution patterns, and production-ready implementations showing significant time and cost savings.
 
 ## Testing Strategy
 
