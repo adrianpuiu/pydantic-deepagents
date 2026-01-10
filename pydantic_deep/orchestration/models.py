@@ -69,6 +69,10 @@ class TaskDefinition(BaseModel):
         default_factory=lambda: [AgentCapability.GENERAL],
         description="Required agent capabilities for this task",
     )
+    required_skills: list[str] = Field(
+        default_factory=list,
+        description="List of skill names required for this task (auto-loaded when task executes)",
+    )
     priority: int = Field(default=5, ge=1, le=10, description="Task priority (1-10, higher is more important)")
     timeout_seconds: float | None = Field(default=None, ge=1.0, description="Maximum execution time in seconds")
     retry_config: RetryConfig = Field(default_factory=RetryConfig, description="Retry configuration")

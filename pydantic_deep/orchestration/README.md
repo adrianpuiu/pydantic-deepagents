@@ -51,6 +51,13 @@ Predefined agent capabilities for intelligent routing:
 - API integration
 - Research
 
+### 7. **Skill Integration** ✨
+- Automatic skill discovery and loading
+- Tasks can specify required skills
+- Skills auto-loaded when tasks execute
+- Skills provide domain-specific expertise
+- Seamless integration with existing skill system
+
 ## Architecture
 
 ### Core Components
@@ -62,6 +69,7 @@ TaskDefinition(
     id="analyze-code",
     description="Analyze the codebase for potential issues",
     required_capabilities=[AgentCapability.CODE_ANALYSIS],
+    required_skills=["python-code-review"],  # Auto-loaded skills
     depends_on=["setup"],  # Task dependencies
     priority=8,  # 1-10, higher is more important
     retry_config=RetryConfig(max_retries=3),
@@ -444,6 +452,155 @@ WorkflowDefinition(
 - Timeout results in task/workflow failure
 - Use appropriate values for long-running tasks
 
+## Skill Integration
+
+### Overview
+
+The orchestration system fully integrates with the pydantic-deep skill system, allowing tasks to automatically load and use domain-specific skills when needed.
+
+### How It Works
+
+1. **Skill Discovery**: The orchestrator automatically discovers skills from configured directories
+2. **Task Requirements**: Tasks specify which skills they need via `required_skills` parameter
+3. **Automatic Loading**: Skills are auto-loaded when tasks execute
+4. **Seamless Integration**: Skills are injected into agent dependencies transparently
+
+### Using Skills in Tasks
+
+```python
+from pydantic_deep import TaskDefinition, AgentCapability
+
+# Define task with required skills
+task = TaskDefinition(
+    id="code-review",
+    description="Review Python code for quality and best practices",
+    required_capabilities=[AgentCapability.CODE_ANALYSIS],
+    required_skills=["python-code-review"],  # ← Auto-loads this skill
+)
+```
+
+### Creating an Orchestrator with Skills
+
+```python
+from pydantic_deep import TaskOrchestrator, create_deep_agent, create_default_deps
+from pydantic_deep.types import SkillDirectory
+
+# Create orchestrator with skill directories
+orchestrator = TaskOrchestrator(
+    agent=create_deep_agent(model="openai:gpt-4"),
+    deps=create_default_deps(),
+    skill_directories=[
+        {"path": "~/.pydantic-deep/skills", "recursive": True},
+        {"path": "./project-skills", "recursive": False},
+    ]
+)
+```
+
+### Complete Example
+
+```python
+from pydantic_deep import (
+    TaskOrchestrator,
+    WorkflowDefinition,
+    TaskDefinition,
+    AgentCapability,
+    ExecutionStrategy,
+)
+
+# Create workflow with skill-based tasks
+workflow = WorkflowDefinition(
+    id="quality-pipeline",
+    name="Code Quality Pipeline",
+    execution_strategy=ExecutionStrategy.DAG,
+    tasks=[
+        TaskDefinition(
+            id="api-design",
+            description="Design RESTful API",
+            required_skills=["api-design"],
+        ),
+        TaskDefinition(
+            id="implementation",
+            description="Implement the API",
+            depends_on=["api-design"],
+            required_capabilities=[AgentCapability.CODE_GENERATION],
+        ),
+        TaskDefinition(
+            id="code-review",
+            description="Review implementation quality",
+            depends_on=["implementation"],
+            required_skills=["python-code-review"],
+        ),
+        TaskDefinition(
+            id="test-strategy",
+            description="Design test strategy",
+            depends_on=["implementation"],
+            required_skills=["test-strategy"],
+        ),
+    ],
+)
+
+# Execute - skills auto-loaded as needed
+result = await orchestrator.execute_workflow(workflow)
+```
+
+### Skill Discovery
+
+Skills are discovered automatically from configured directories:
+
+```python
+# Skills are discovered when workflow starts
+orchestrator.skill_manager.discover_skills()
+
+# Get all available skills
+skills = orchestrator.skill_manager.get_all_skills()
+for skill in skills:
+    print(f"{skill['name']}: {skill['description']}")
+
+# Get specific skill
+skill = orchestrator.skill_manager.get_skill("python-code-review")
+```
+
+### Skill Requirements
+
+Tasks can require multiple skills:
+
+```python
+TaskDefinition(
+    id="comprehensive-review",
+    description="Full code quality review",
+    required_skills=[
+        "python-code-review",
+        "security-audit",
+        "performance-analysis"
+    ]
+)
+```
+
+### Error Handling
+
+If a required skill is not found, the orchestrator raises a clear error:
+
+```python
+# ValueError: Required skill 'nonexistent-skill' not found.
+# Available skills: ['python-code-review', 'api-design', 'test-strategy']
+```
+
+### Best Practices
+
+1. **Organize Skills**: Keep skills in dedicated directories
+2. **Name Clearly**: Use descriptive skill names (e.g., "python-code-review", not "review")
+3. **Specify Requirements**: Only require skills that are actually needed
+4. **Version Skills**: Use skill versioning for stability
+5. **Document Skills**: Ensure each skill has clear description and tags
+
+### Benefits
+
+- **Domain Expertise**: Skills provide specialized knowledge
+- **Consistency**: Same skill used across multiple tasks
+- **Modularity**: Skills can be reused across workflows
+- **Auto-Loading**: No manual skill management
+- **Flexibility**: Easy to add/update skills
+
 ## Integration with pydantic-deep
 
 The orchestration system integrates seamlessly with existing pydantic-deep features:
@@ -456,13 +613,27 @@ The orchestration system integrates seamlessly with existing pydantic-deep featu
 
 ## Examples
 
-See `examples/orchestration_example.py` for comprehensive examples including:
+See example files for comprehensive demonstrations:
+
+**`examples/orchestration_example.py`**:
 - Basic workflow execution
 - Parallel data processing
 - Conditional task execution
 - Complex DAG workflows
 - Progress tracking
 - Error handling
+
+**`examples/orchestration_with_skills_example.py`**:
+- Skill integration with workflows
+- Auto-loading skills for tasks
+- Multiple tasks using different skills
+- Skill discovery and management
+
+**`examples/strategy_selection_example.py`**:
+- Manual strategy selection
+- Automatic strategy selection
+- Strategy recommendations
+- Performance comparisons
 
 ## Future Enhancements
 

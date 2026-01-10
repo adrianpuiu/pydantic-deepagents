@@ -77,6 +77,7 @@ from pydantic_deep.orchestration.models import (
     WorkflowState,
 )
 from pydantic_deep.orchestration.routing import TaskRouter, create_default_routing
+from pydantic_deep.orchestration.skill_manager import SkillManager
 from pydantic_deep.orchestration.state import StateManager
 from pydantic_deep.orchestration.strategy_selector import (
     auto_select_strategy,
@@ -108,4 +109,6 @@ __all__ = [
     "auto_select_strategy",
     "recommend_strategy",
     "explain_strategy_choice",
+    # Skill management
+    "SkillManager",
 ]

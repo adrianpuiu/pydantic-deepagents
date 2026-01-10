@@ -24,11 +24,13 @@ from pydantic_deep.orchestration.models import (
     WorkflowState,
 )
 from pydantic_deep.orchestration.routing import TaskRouter, create_default_routing
+from pydantic_deep.orchestration.skill_manager import SkillManager
 from pydantic_deep.orchestration.state import StateManager
 from pydantic_deep.orchestration.strategy_selector import (
     auto_select_strategy,
     explain_strategy_choice,
 )
+from pydantic_deep.types import SkillDirectory
 
 
 class TaskExecutor(Protocol):
@@ -54,6 +56,7 @@ class TaskOrchestrator:
         agent: Agent[DeepAgentDeps, str],
         deps: DeepAgentDeps,
         config: OrchestrationConfig | None = None,
+        skill_directories: list[SkillDirectory] | None = None,
     ) -> None:
         """Initialize task orchestrator.
 
@@ -61,6 +64,8 @@ class TaskOrchestrator:
             agent: The main pydantic-ai agent to use for task execution.
             deps: Agent dependencies.
             config: Orchestration configuration. If None, uses default config.
+            skill_directories: Optional list of directories to search for skills.
+                If None, uses deps.skills_dirs if available, otherwise default location.
         """
         self.agent = agent
         self.deps = deps
@@ -72,6 +77,11 @@ class TaskOrchestrator:
 
         # Initialize router
         self.router = TaskRouter(config)
+
+        # Initialize skill manager
+        if skill_directories is None and hasattr(deps, "skills_dirs"):
+            skill_directories = deps.skills_dirs
+        self.skill_manager = SkillManager(skill_directories)
 
         # Track active workflows
         self.workflows: dict[str, StateManager] = {}
@@ -96,6 +106,9 @@ class TaskOrchestrator:
         # Create state manager
         state_manager = StateManager(workflow)
         self.workflows[workflow.id] = state_manager
+
+        # Discover skills for the workflow
+        self.skill_manager.discover_skills(self.deps.backend)
 
         # Select execution strategy
         if auto_strategy:
@@ -250,6 +263,10 @@ class TaskOrchestrator:
 
         # Clone deps for isolation (subagents get clean state)
         task_deps = self.deps.clone_for_subagent()
+
+        # Auto-load required skills for this task
+        if task.required_skills:
+            task_deps = self.skill_manager.inject_skills_into_deps(task, task_deps)
 
         # Execute using subagent if not general-purpose
         if agent_type != "general-purpose" and agent_type in self.deps.subagents:
