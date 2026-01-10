@@ -78,6 +78,11 @@ from pydantic_deep.orchestration.models import (
 )
 from pydantic_deep.orchestration.routing import TaskRouter, create_default_routing
 from pydantic_deep.orchestration.state import StateManager
+from pydantic_deep.orchestration.strategy_selector import (
+    auto_select_strategy,
+    explain_strategy_choice,
+    recommend_strategy,
+)
 
 __all__ = [
     # Main orchestrator
@@ -99,4 +104,8 @@ __all__ = [
     "create_default_routing",
     # State management
     "StateManager",
+    # Strategy selection
+    "auto_select_strategy",
+    "recommend_strategy",
+    "explain_strategy_choice",
 ]

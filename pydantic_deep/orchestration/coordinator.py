@@ -25,6 +25,10 @@ from pydantic_deep.orchestration.models import (
 )
 from pydantic_deep.orchestration.routing import TaskRouter, create_default_routing
 from pydantic_deep.orchestration.state import StateManager
+from pydantic_deep.orchestration.strategy_selector import (
+    auto_select_strategy,
+    explain_strategy_choice,
+)
 
 
 class TaskExecutor(Protocol):
@@ -76,12 +80,15 @@ class TaskOrchestrator:
         self,
         workflow: WorkflowDefinition,
         progress_callback: Callable[[WorkflowState], None] | None = None,
+        auto_strategy: bool = False,
     ) -> WorkflowState:
         """Execute a complete workflow.
 
         Args:
             workflow: Workflow definition to execute.
             progress_callback: Optional callback for progress updates.
+            auto_strategy: If True, automatically select optimal execution strategy
+                based on workflow characteristics. Default is False (use explicit strategy).
 
         Returns:
             Final workflow state with all task results.
@@ -90,13 +97,19 @@ class TaskOrchestrator:
         state_manager = StateManager(workflow)
         self.workflows[workflow.id] = state_manager
 
+        # Select execution strategy
+        if auto_strategy:
+            selected_strategy = auto_select_strategy(workflow)
+        else:
+            selected_strategy = workflow.execution_strategy
+
         # Start workflow
         state_manager.start_workflow()
 
         try:
             # Create executor based on strategy
             executor = ExecutorFactory.create_executor(
-                workflow.execution_strategy,
+                selected_strategy,
                 state_manager,
                 self._create_task_executor(state_manager, progress_callback),
                 workflow.max_parallel_tasks,
