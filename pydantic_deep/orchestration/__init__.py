@@ -60,6 +60,11 @@ Example:
     ```
 """
 
+from pydantic_deep.orchestration.cache import (
+    CacheConfig,
+    CacheStrategy,
+    ResultCache,
+)
 from pydantic_deep.orchestration.coordinator import (
     TaskOrchestrator,
     create_orchestrator,
@@ -94,6 +99,11 @@ from pydantic_deep.orchestration.templates import (
     create_code_review_workflow,
     create_documentation_workflow,
     create_etl_pipeline,
+)
+from pydantic_deep.orchestration.visualization import (
+    DAGVisualizer,
+    VisualizationFormat,
+    visualize_workflow,
 )
 
 __all__ = [
@@ -131,4 +141,12 @@ __all__ = [
     "create_etl_pipeline",
     "create_code_review_workflow",
     "create_documentation_workflow",
+    # Caching
+    "ResultCache",
+    "CacheConfig",
+    "CacheStrategy",
+    # Visualization
+    "DAGVisualizer",
+    "VisualizationFormat",
+    "visualize_workflow",
 ]

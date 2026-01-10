@@ -13,6 +13,7 @@ from typing import Any, Callable, Protocol
 from pydantic_ai import Agent
 
 from pydantic_deep.deps import DeepAgentDeps
+from pydantic_deep.orchestration.cache import CacheConfig, ResultCache
 from pydantic_deep.orchestration.executor import ExecutorFactory
 from pydantic_deep.orchestration.metrics import MetricsCollector, WorkflowMetrics
 from pydantic_deep.orchestration.models import (
@@ -58,6 +59,7 @@ class TaskOrchestrator:
         deps: DeepAgentDeps,
         config: OrchestrationConfig | None = None,
         skill_directories: list[SkillDirectory] | None = None,
+        cache_config: CacheConfig | None = None,
     ) -> None:
         """Initialize task orchestrator.
 
@@ -67,6 +69,8 @@ class TaskOrchestrator:
             config: Orchestration configuration. If None, uses default config.
             skill_directories: Optional list of directories to search for skills.
                 If None, uses deps.skills_dirs if available, otherwise default location.
+            cache_config: Optional cache configuration for result caching.
+                If None, uses default cache config (memory cache enabled).
         """
         self.agent = agent
         self.deps = deps
@@ -86,6 +90,9 @@ class TaskOrchestrator:
 
         # Initialize metrics collector
         self.metrics_collector = MetricsCollector()
+
+        # Initialize result cache
+        self.result_cache = ResultCache(cache_config)
 
         # Track active workflows
         self.workflows: dict[str, StateManager] = {}
@@ -185,6 +192,24 @@ class TaskOrchestrator:
             Returns:
                 Task execution result.
             """
+            # Check cache before execution
+            dependency_results = {
+                dep_id: state_manager.state.task_results[dep_id]
+                for dep_id in task.depends_on
+                if dep_id in state_manager.state.task_results
+            }
+
+            cached_result = self.result_cache.get(task, dependency_results)
+            if cached_result:
+                # Cache hit! Complete task immediately with cached result
+                state_manager.start_task(task.id)
+                state_manager.complete_task(task.id, cached_result.output, "cache")
+
+                if progress_callback:
+                    progress_callback(state_manager.state)
+
+                return state_manager.state.task_results[task.id]
+
             # Route task to appropriate agent
             agent_type = self.router.route_task(task)
             self.router.increment_agent_load(agent_type)
@@ -207,10 +232,14 @@ class TaskOrchestrator:
                     state_manager.complete_task(task.id, result, agent_type)
                     self.router.decrement_agent_load(agent_type)
 
+                    # Store result in cache
+                    task_result = state_manager.state.task_results[task.id]
+                    self.result_cache.put(task, task_result, dependency_results)
+
                     if progress_callback:
                         progress_callback(state_manager.state)
 
-                    return state_manager.state.task_results[task.id]
+                    return task_result
 
                 except Exception as e:
                     error_msg = str(e)
@@ -423,6 +452,29 @@ class TaskOrchestrator:
     def clear_metrics(self) -> None:
         """Clear all collected metrics."""
         self.metrics_collector.clear()
+
+    def get_cache_stats(self) -> dict[str, Any]:
+        """Get cache statistics.
+
+        Returns:
+            Dictionary with cache statistics.
+        """
+        return self.result_cache.get_stats()
+
+    def clear_cache(self) -> None:
+        """Clear all cached results."""
+        self.result_cache.clear()
+
+    def invalidate_cache(self, task_id: str) -> int:
+        """Invalidate cache entries for a specific task.
+
+        Args:
+            task_id: ID of the task to invalidate.
+
+        Returns:
+            Number of entries invalidated.
+        """
+        return self.result_cache.invalidate(task_id)
 
 
 def create_orchestrator(

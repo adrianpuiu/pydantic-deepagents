@@ -74,6 +74,23 @@ Predefined agent capabilities for intelligent routing:
 - Documentation generation template
 - Customizable and extensible
 
+### 10. **Result Caching** ⚡
+- Intelligent task result caching
+- Multiple cache strategies (memory, disk, hybrid)
+- Automatic cache key generation
+- Dependency-aware caching
+- TTL (time-to-live) support
+- LRU eviction policy
+- Cache statistics and monitoring
+
+### 11. **DAG Visualization** 🎨
+- Visual workflow representation
+- Multiple output formats (Mermaid, Graphviz, ASCII, JSON)
+- Status-aware coloring
+- Execution metrics overlay
+- Dependency graph visualization
+- Export for documentation
+
 ## Architecture
 
 ### Core Components
@@ -980,6 +997,419 @@ workflow = create_ci_cd_pipeline(
 - **Customizable**: All templates highly configurable
 - **Maintainable**: Update templates to improve all workflows
 
+## Result Caching
+
+### Overview
+
+The orchestration system includes intelligent result caching to avoid re-executing tasks when inputs haven't changed, dramatically improving performance for repeated workflows.
+
+### How It Works
+
+1. **Cache Key Generation**: Automatically generates unique keys based on task description, parameters, and dependency outputs
+2. **Automatic Check**: Before executing a task, checks if cached result exists
+3. **Instant Retrieval**: If cache hit, returns result immediately without execution
+4. **Store on Success**: After successful execution, stores result in cache
+5. **Smart Invalidation**: Invalidates cache when dependencies change
+
+### Cache Strategies
+
+#### Memory Cache (Default)
+
+```python
+from pydantic_deep import TaskOrchestrator, CacheConfig, CacheStrategy
+
+cache_config = CacheConfig(
+    strategy=CacheStrategy.MEMORY,
+    max_size=1000,  # Maximum cached entries
+    ttl_seconds=3600,  # 1 hour TTL (optional)
+)
+
+orchestrator = TaskOrchestrator(agent, deps, cache_config=cache_config)
+```
+
+**Pros:**
+- Fast retrieval
+- Low latency
+
+**Cons:**
+- Lost when process ends
+- Limited by available memory
+
+#### Disk Cache
+
+```python
+cache_config = CacheConfig(
+    strategy=CacheStrategy.DISK,
+    cache_dir="/path/to/cache",  # Optional, defaults to ~/.pydantic-deep/cache
+    ttl_seconds=86400,  # 24 hour TTL
+)
+
+orchestrator = TaskOrchestrator(agent, deps, cache_config=cache_config)
+```
+
+**Pros:**
+- Persistent across restarts
+- Larger capacity
+
+**Cons:**
+- Slower than memory
+- Disk I/O overhead
+
+#### Hybrid Cache (Recommended)
+
+```python
+cache_config = CacheConfig(
+    strategy=CacheStrategy.HYBRID,
+    max_size=100,  # Hot cache in memory
+    cache_dir="/path/to/cache",
+    ttl_seconds=3600,
+)
+
+orchestrator = TaskOrchestrator(agent, deps, cache_config=cache_config)
+```
+
+**Pros:**
+- Frequently used results in memory
+- All results persisted to disk
+- Best performance + persistence
+
+**Cons:**
+- Slightly more complex
+
+#### No Cache
+
+```python
+cache_config = CacheConfig(strategy=CacheStrategy.NONE)
+orchestrator = TaskOrchestrator(agent, deps, cache_config=cache_config)
+```
+
+Disables caching completely.
+
+### Using the Cache
+
+#### Basic Usage
+
+```python
+from pydantic_deep import TaskOrchestrator, WorkflowDefinition
+
+# Create orchestrator (caching enabled by default)
+orchestrator = TaskOrchestrator(agent, deps)
+
+# First execution - cache miss
+result1 = await orchestrator.execute_workflow(workflow)
+
+# Second execution - cache hit!
+result2 = await orchestrator.execute_workflow(workflow)
+
+# Get cache statistics
+stats = orchestrator.get_cache_stats()
+print(f"Hit rate: {stats['hit_rate']}")
+```
+
+#### Cache Statistics
+
+```python
+stats = orchestrator.get_cache_stats()
+
+# Returns:
+# {
+#     "strategy": "memory",
+#     "hits": 10,
+#     "misses": 5,
+#     "hit_rate": "66.7%",
+#     "evictions": 2,
+#     "invalidations": 1,
+#     "cache_size": 8,
+#     "max_size": 1000
+# }
+```
+
+#### Cache Management
+
+```python
+# Invalidate specific task's cache
+orchestrator.invalidate_cache("task-id")
+
+# Clear entire cache
+orchestrator.clear_cache()
+```
+
+### Cache Key Generation
+
+Cache keys are generated based on:
+- Task ID
+- Task description
+- Task parameters
+- Required capabilities and skills
+- **Dependency outputs** (optional, default: enabled)
+
+#### With Dependency Tracking (Default)
+
+```python
+cache_config = CacheConfig(include_dependencies=True)
+```
+
+Task result is cached separately for each unique combination of dependency outputs. More accurate but more cache entries.
+
+#### Without Dependency Tracking
+
+```python
+cache_config = CacheConfig(include_dependencies=False)
+```
+
+Task result is cached based only on task definition. More aggressive caching but may return stale results if dependencies changed.
+
+### Use Cases
+
+1. **Development & Testing**: Rapidly iterate without re-executing unchanged tasks
+2. **CI/CD Pipelines**: Skip unchanged build/test steps
+3. **ETL Workflows**: Cache expensive data extraction and transformation
+4. **Research Workflows**: Cache intermediate analysis results
+5. **Interactive Workflows**: Instant re-runs during debugging
+
+### Best Practices
+
+1. **Choose Right Strategy**: Use hybrid for production, memory for development
+2. **Set Appropriate TTL**: Balance freshness vs performance
+3. **Monitor Cache Stats**: Track hit rates to optimize cache configuration
+4. **Clear Strategically**: Invalidate cache when underlying data changes
+5. **Size Appropriately**: Set max_size based on available memory
+
+## DAG Visualization
+
+### Overview
+
+Visualize workflow DAGs in multiple formats to understand structure, debug issues, and document workflows.
+
+### Supported Formats
+
+#### 1. Mermaid (Markdown-Compatible)
+
+Perfect for documentation, GitHub, and modern markdown viewers.
+
+```python
+from pydantic_deep import visualize_workflow, VisualizationFormat
+
+diagram = visualize_workflow(
+    workflow,
+    format=VisualizationFormat.MERMAID,
+    include_metrics=True
+)
+
+print(diagram)
+```
+
+**Output:**
+```mermaid
+graph TD
+    task1[task1<br/>2.5s]:::completed
+    task2[task2]:::running
+    task3[task3<br/>1.0s]:::failed
+    task1 --> task2
+    task1 --> task3
+
+    classDef completed fill:#90EE90,stroke:#006400
+    classDef failed fill:#FFB6C1,stroke:#8B0000
+    classDef running fill:#87CEEB,stroke:#00008B
+```
+
+#### 2. Graphviz/DOT
+
+For rendering with Graphviz tools.
+
+```python
+diagram = visualize_workflow(
+    workflow,
+    format=VisualizationFormat.GRAPHVIZ
+)
+```
+
+**Output:**
+```dot
+digraph Workflow {
+    rankdir=TB;
+    node [shape=box, style=rounded];
+
+    task1 [label="task1\n2.5s", color="darkgreen", fillcolor="lightgreen", style="filled,rounded"];
+    task2 [label="task2", color="darkblue", fillcolor="lightblue", style="filled,rounded"];
+
+    task1 -> task2;
+}
+```
+
+#### 3. ASCII Art (Terminal-Friendly)
+
+Perfect for CLI tools and terminal output.
+
+```python
+diagram = visualize_workflow(
+    workflow,
+    format=VisualizationFormat.ASCII
+)
+```
+
+**Output:**
+```
+Workflow: My Workflow
+Strategy: ExecutionStrategy.DAG
+======================================================================
+
+Level 0:
+  ✓ task1 (2.5s)
+
+    ↓
+
+Level 1:
+  ⟳ task2 [depends: task1]
+  ✗ task3 (1.0s) [depends: task1]
+
+Legend:
+  ✓ Completed
+  ✗ Failed
+  ⟳ Running
+  ○ Pending
+```
+
+#### 4. JSON (Custom Rendering)
+
+For building custom visualizations.
+
+```python
+diagram = visualize_workflow(
+    workflow,
+    format=VisualizationFormat.JSON
+)
+```
+
+**Output:**
+```json
+{
+  "workflow": {
+    "id": "my-workflow",
+    "name": "My Workflow",
+    "strategy": "ExecutionStrategy.DAG"
+  },
+  "nodes": [
+    {
+      "id": "task1",
+      "description": "First task",
+      "status": "COMPLETED",
+      "metrics": {
+        "duration_seconds": 2.5
+      }
+    }
+  ],
+  "edges": [
+    {"from": "task1", "to": "task2"}
+  ]
+}
+```
+
+### Using Visualization
+
+#### Quick Function
+
+```python
+from pydantic_deep import visualize_workflow, VisualizationFormat
+
+# Simple visualization
+diagram = visualize_workflow(workflow, format=VisualizationFormat.MERMAID)
+
+# With execution state
+diagram = visualize_workflow(workflow, state, format=VisualizationFormat.ASCII)
+
+# With metrics
+diagram = visualize_workflow(
+    workflow,
+    state,
+    format=VisualizationFormat.GRAPHVIZ,
+    include_metrics=True
+)
+```
+
+#### DAGVisualizer Class
+
+For more control:
+
+```python
+from pydantic_deep import DAGVisualizer, VisualizationFormat
+
+# Create visualizer
+visualizer = DAGVisualizer(workflow, state)
+
+# Generate multiple formats
+mermaid = visualizer.visualize(VisualizationFormat.MERMAID)
+ascii_diagram = visualizer.visualize(VisualizationFormat.ASCII)
+graphviz = visualizer.visualize(VisualizationFormat.GRAPHVIZ)
+json_data = visualizer.visualize(VisualizationFormat.JSON)
+```
+
+### Status Visualization
+
+When workflow state is provided, tasks are color-coded by status:
+
+- **Green**: Completed successfully
+- **Red**: Failed
+- **Blue**: Currently running
+- **Yellow**: Pending execution
+
+### Including Metrics
+
+Set `include_metrics=True` to overlay execution metrics:
+
+```python
+diagram = visualize_workflow(
+    workflow,
+    state,
+    format=VisualizationFormat.MERMAID,
+    include_metrics=True
+)
+```
+
+Metrics shown:
+- Task duration (seconds)
+- Retry count
+- Agent used
+
+### Use Cases
+
+1. **Documentation**: Include Mermaid diagrams in README/docs
+2. **Debugging**: Visualize failed workflows to identify issues
+3. **Planning**: Design workflows visually before implementation
+4. **Monitoring**: Real-time workflow status visualization
+5. **Reports**: Generate execution reports with visualizations
+6. **CI/CD**: Visualize pipeline structure and status
+
+### Export Options
+
+#### Save to File
+
+```python
+diagram = visualize_workflow(workflow, format=VisualizationFormat.MERMAID)
+
+with open("workflow.md", "w") as f:
+    f.write(diagram)
+```
+
+#### Render with Graphviz
+
+```python
+diagram = visualize_workflow(workflow, format=VisualizationFormat.GRAPHVIZ)
+
+with open("workflow.dot", "w") as f:
+    f.write(diagram)
+
+# Then: dot -Tpng workflow.dot -o workflow.png
+```
+
+### Best Practices
+
+1. **Choose Format by Use Case**: Mermaid for docs, ASCII for CLI, JSON for custom
+2. **Include Metrics**: Always include metrics for completed workflows
+3. **Document Workflows**: Add visualizations to project documentation
+4. **Debug Visually**: Use ASCII format for quick terminal debugging
+5. **Version Control**: Commit Mermaid diagrams with code
+
 ## Integration with pydantic-deep
 
 The orchestration system integrates seamlessly with existing pydantic-deep features:
@@ -1021,6 +1451,14 @@ See example files for comprehensive demonstrations:
 - Bottleneck identification
 - Aggregate statistics
 - Metrics-driven optimization
+
+**`examples/caching_and_visualization_example.py`**:
+- Result caching strategies (memory, disk, hybrid)
+- Cache TTL and invalidation
+- DAG visualization in multiple formats (Mermaid, Graphviz, ASCII, JSON)
+- Visualization with execution state and metrics
+- Combining caching with workflow templates
+- Cache performance monitoring
 
 ## Future Enhancements
 

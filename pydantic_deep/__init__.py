@@ -71,9 +71,13 @@ from pydantic_deep.deps import DeepAgentDeps
 from pydantic_deep.orchestration import (
     AgentCapability,
     AgentRouting,
+    CacheConfig,
+    CacheStrategy,
+    DAGVisualizer,
     ExecutionStrategy,
     MetricsCollector,
     OrchestrationConfig,
+    ResultCache,
     RetryConfig,
     SkillManager,
     StateManager,
@@ -83,6 +87,7 @@ from pydantic_deep.orchestration import (
     TaskResult,
     TaskRouter,
     TaskStatus,
+    VisualizationFormat,
     WorkflowDefinition,
     WorkflowMetrics,
     WorkflowState,
@@ -95,6 +100,7 @@ from pydantic_deep.orchestration import (
     create_orchestrator,
     explain_strategy_choice,
     recommend_strategy,
+    visualize_workflow,
 )
 from pydantic_deep.processors import (
     SummarizationProcessor,
@@ -173,6 +179,14 @@ __all__ = [
     "create_etl_pipeline",
     "create_code_review_workflow",
     "create_documentation_workflow",
+    # Caching
+    "ResultCache",
+    "CacheConfig",
+    "CacheStrategy",
+    # Visualization
+    "DAGVisualizer",
+    "VisualizationFormat",
+    "visualize_workflow",
     # Types
     "FileData",
     "FileInfo",
