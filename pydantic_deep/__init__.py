@@ -68,6 +68,23 @@ from pydantic_ai_backends import (
 
 from pydantic_deep.agent import create_deep_agent, create_default_deps, run_with_files
 from pydantic_deep.deps import DeepAgentDeps
+from pydantic_deep.orchestration import (
+    AgentCapability,
+    AgentRouting,
+    ExecutionStrategy,
+    OrchestrationConfig,
+    RetryConfig,
+    StateManager,
+    TaskDefinition,
+    TaskOrchestrator,
+    TaskResult,
+    TaskRouter,
+    TaskStatus,
+    WorkflowDefinition,
+    WorkflowState,
+    create_default_routing,
+    create_orchestrator,
+)
 from pydantic_deep.processors import (
     SummarizationProcessor,
     create_summarization_processor,
@@ -115,6 +132,22 @@ __all__ = [
     # Processors
     "SummarizationProcessor",
     "create_summarization_processor",
+    # Orchestration
+    "TaskOrchestrator",
+    "create_orchestrator",
+    "TaskDefinition",
+    "WorkflowDefinition",
+    "TaskResult",
+    "WorkflowState",
+    "TaskStatus",
+    "ExecutionStrategy",
+    "AgentCapability",
+    "AgentRouting",
+    "OrchestrationConfig",
+    "RetryConfig",
+    "TaskRouter",
+    "create_default_routing",
+    "StateManager",
     # Types
     "FileData",
     "FileInfo",
