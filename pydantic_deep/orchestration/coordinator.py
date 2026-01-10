@@ -14,6 +14,7 @@ from pydantic_ai import Agent
 
 from pydantic_deep.deps import DeepAgentDeps
 from pydantic_deep.orchestration.executor import ExecutorFactory
+from pydantic_deep.orchestration.metrics import MetricsCollector, WorkflowMetrics
 from pydantic_deep.orchestration.models import (
     OrchestrationConfig,
     RetryConfig,
@@ -83,6 +84,9 @@ class TaskOrchestrator:
             skill_directories = deps.skills_dirs
         self.skill_manager = SkillManager(skill_directories)
 
+        # Initialize metrics collector
+        self.metrics_collector = MetricsCollector()
+
         # Track active workflows
         self.workflows: dict[str, StateManager] = {}
 
@@ -151,6 +155,9 @@ class TaskOrchestrator:
         # Final progress callback
         if progress_callback:
             progress_callback(state_manager.state)
+
+        # Record metrics for the workflow
+        self.metrics_collector.record_workflow(state_manager.state, workflow.name)
 
         return state_manager.state
 
@@ -385,6 +392,37 @@ class TaskOrchestrator:
             state_manager.fail_workflow("Workflow cancelled by user")
             return True
         return False
+
+    def get_workflow_metrics(self, workflow_id: str) -> WorkflowMetrics | None:
+        """Get metrics for a specific workflow.
+
+        Args:
+            workflow_id: ID of the workflow.
+
+        Returns:
+            Workflow metrics or None if not found.
+        """
+        return self.metrics_collector.get_workflow_metrics(workflow_id)
+
+    def get_all_metrics(self) -> list[WorkflowMetrics]:
+        """Get metrics for all executed workflows.
+
+        Returns:
+            List of all workflow metrics.
+        """
+        return self.metrics_collector.get_all_metrics()
+
+    def get_aggregate_stats(self) -> dict[str, Any]:
+        """Get aggregate statistics across all workflows.
+
+        Returns:
+            Dictionary with aggregate statistics.
+        """
+        return self.metrics_collector.get_aggregate_stats()
+
+    def clear_metrics(self) -> None:
+        """Clear all collected metrics."""
+        self.metrics_collector.clear()
 
 
 def create_orchestrator(

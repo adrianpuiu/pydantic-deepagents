@@ -64,6 +64,11 @@ from pydantic_deep.orchestration.coordinator import (
     TaskOrchestrator,
     create_orchestrator,
 )
+from pydantic_deep.orchestration.metrics import (
+    MetricsCollector,
+    TaskMetrics,
+    WorkflowMetrics,
+)
 from pydantic_deep.orchestration.models import (
     AgentCapability,
     AgentRouting,
@@ -83,6 +88,12 @@ from pydantic_deep.orchestration.strategy_selector import (
     auto_select_strategy,
     explain_strategy_choice,
     recommend_strategy,
+)
+from pydantic_deep.orchestration.templates import (
+    create_ci_cd_pipeline,
+    create_code_review_workflow,
+    create_documentation_workflow,
+    create_etl_pipeline,
 )
 
 __all__ = [
@@ -111,4 +122,13 @@ __all__ = [
     "explain_strategy_choice",
     # Skill management
     "SkillManager",
+    # Metrics
+    "MetricsCollector",
+    "TaskMetrics",
+    "WorkflowMetrics",
+    # Templates
+    "create_ci_cd_pipeline",
+    "create_etl_pipeline",
+    "create_code_review_workflow",
+    "create_documentation_workflow",
 ]

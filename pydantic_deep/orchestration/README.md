@@ -58,6 +58,22 @@ Predefined agent capabilities for intelligent routing:
 - Skills provide domain-specific expertise
 - Seamless integration with existing skill system
 
+### 8. **Performance Metrics & Analytics** 📊
+- Automatic metrics collection for all workflows
+- Task-level and workflow-level metrics
+- Performance analysis and bottleneck identification
+- Success rate and retry tracking
+- Aggregate statistics across workflows
+- Human-readable performance reports
+
+### 9. **Workflow Templates** 🎯
+- Pre-built templates for common patterns
+- CI/CD pipeline template
+- ETL data pipeline template
+- Code review workflow template
+- Documentation generation template
+- Customizable and extensible
+
 ## Architecture
 
 ### Core Components
@@ -601,6 +617,369 @@ If a required skill is not found, the orchestrator raises a clear error:
 - **Auto-Loading**: No manual skill management
 - **Flexibility**: Easy to add/update skills
 
+## Performance Metrics & Analytics
+
+### Overview
+
+The orchestration system automatically collects comprehensive metrics for all workflow executions, enabling performance analysis, bottleneck identification, and optimization.
+
+### How It Works
+
+1. **Automatic Collection**: Metrics are collected automatically during workflow execution
+2. **Task-Level Tracking**: Each task's duration, retries, and status are recorded
+3. **Workflow-Level Analysis**: Aggregate metrics calculated for entire workflows
+4. **Historical Data**: Metrics stored for all executed workflows
+5. **Performance Reports**: Human-readable reports generated on demand
+
+### Using Metrics
+
+#### Basic Metrics Collection
+
+```python
+from pydantic_deep import TaskOrchestrator, WorkflowDefinition
+
+orchestrator = TaskOrchestrator(agent, deps)
+
+# Execute workflow (metrics collected automatically)
+result = await orchestrator.execute_workflow(workflow)
+
+# Get metrics for the workflow
+metrics = orchestrator.get_workflow_metrics(workflow.id)
+
+# Access metrics
+print(f"Success Rate: {metrics.success_rate:.1f}%")
+print(f"Total Duration: {metrics.total_duration_seconds:.2f}s")
+print(f"Average Task Duration: {metrics.average_task_duration:.2f}s")
+```
+
+#### Identifying Bottlenecks
+
+```python
+# Find the slowest task
+bottleneck = metrics.get_bottleneck()
+if bottleneck:
+    print(f"Bottleneck: {bottleneck.task_id}")
+    print(f"Duration: {bottleneck.duration_seconds:.2f}s")
+    print(f"% of Total: {bottleneck.duration_seconds / metrics.total_duration_seconds * 100:.1f}%")
+```
+
+#### Analyzing Failed Tasks
+
+```python
+# Get all failed tasks
+failed = metrics.get_failed_tasks()
+for task in failed:
+    print(f"Task: {task.task_id}")
+    print(f"Error: {task.error}")
+    print(f"Retries: {task.retry_count}")
+```
+
+#### Performance Reports
+
+```python
+# Generate comprehensive performance report
+report = metrics.get_performance_report()
+print(report)
+
+# Output:
+# Workflow Performance Report: My Workflow
+# ======================================================================
+# Status: completed
+# Total Duration: 45.23s
+#
+# Task Summary:
+#   Total Tasks: 10
+#   Completed: 9 (90.0%)
+#   Failed: 1
+#   Skipped: 0
+#   Total Retries: 3 (avg 0.30 per task)
+#
+# Performance:
+#   Average Task Duration: 4.52s
+#   Slowest Task: data-processing (15.30s)
+#   Fastest Task: validation (0.50s)
+#
+# Failed Tasks:
+#   - integration-test: Connection timeout
+```
+
+#### Aggregate Statistics
+
+```python
+# Get statistics across all workflows
+stats = orchestrator.get_aggregate_stats()
+
+print(f"Total Workflows: {stats['total_workflows']}")
+print(f"Total Tasks: {stats['total_tasks']}")
+print(f"Average Success Rate: {stats['average_success_rate']}")
+print(f"Average Duration: {stats['average_duration']}")
+```
+
+### Metrics Data Model
+
+#### TaskMetrics
+
+```python
+@dataclass
+class TaskMetrics:
+    task_id: str
+    status: TaskStatus
+    duration_seconds: float
+    started_at: datetime
+    completed_at: datetime
+    retry_count: int
+    agent_used: str | None
+    error: str | None
+```
+
+#### WorkflowMetrics
+
+```python
+@dataclass
+class WorkflowMetrics:
+    workflow_id: str
+    workflow_name: str
+    status: str
+    started_at: datetime
+    completed_at: datetime | None
+
+    # Task metrics
+    total_tasks: int
+    completed_tasks: int
+    failed_tasks: int
+    skipped_tasks: int
+    total_retries: int
+
+    # Performance metrics
+    total_duration_seconds: float
+    average_task_duration: float
+    slowest_task: TaskMetrics | None
+    fastest_task: TaskMetrics | None
+
+    # Success metrics
+    success_rate: float
+    retry_rate: float
+```
+
+### Use Cases
+
+1. **Performance Optimization**: Identify bottlenecks and optimize slow tasks
+2. **Reliability Monitoring**: Track failure rates and retry patterns
+3. **Resource Planning**: Understand task durations for capacity planning
+4. **Quality Assurance**: Monitor success rates across workflows
+5. **Continuous Improvement**: Compare metrics across workflow versions
+
+## Workflow Templates
+
+### Overview
+
+Workflow templates provide pre-built, reusable patterns for common use cases. Templates are factory functions that create fully-configured `WorkflowDefinition` instances, saving time and ensuring best practices.
+
+### Available Templates
+
+#### 1. CI/CD Pipeline
+
+Automated continuous integration and deployment pipeline.
+
+```python
+from pydantic_deep import create_ci_cd_pipeline
+
+workflow = create_ci_cd_pipeline(
+    workflow_id="my-ci-cd",
+    repository_path="/path/to/repo",
+    test_command="pytest",
+    build_command="python -m build",
+    deploy_target="staging",  # Optional
+    run_security_scan=True,   # Optional, default True
+)
+```
+
+**Features:**
+- Code quality checks (linting, formatting)
+- Automated testing
+- Security vulnerability scanning
+- Artifact building
+- Deployment to target environment
+
+**Tasks Created:**
+1. `lint-code` - Run linting checks
+2. `check-formatting` - Verify code formatting
+3. `run-tests` - Execute test suite
+4. `security-scan` - Security vulnerability scan (optional)
+5. `build-artifacts` - Build project artifacts
+6. `deploy` - Deploy to target (optional)
+
+#### 2. ETL Pipeline
+
+Extract, Transform, Load data pipeline.
+
+```python
+from pydantic_deep import create_etl_pipeline
+
+workflow = create_etl_pipeline(
+    workflow_id="my-etl",
+    source_configs=[
+        {"type": "csv", "path": "data.csv"},
+        {"type": "api", "url": "https://api.example.com/data"}
+    ],
+    transformation_steps=[
+        "clean nulls",
+        "normalize values",
+        "aggregate by date"
+    ],
+    destination_config={"type": "database", "table": "analytics"},
+    validate_data=True,  # Optional, default True
+)
+```
+
+**Features:**
+- Multiple data source extraction (parallel)
+- Data validation
+- Sequential transformation steps
+- Data loading to destination
+- Load verification
+
+**Tasks Created:**
+1. `extract-{type}-{idx}` - Extract from each source (parallel)
+2. `validate-extracted-data` - Validate data (optional)
+3. `transform-step-{n}` - Each transformation step (sequential)
+4. `load-to-destination` - Load to destination
+5. `verify-load` - Verify successful load
+
+#### 3. Code Review Workflow
+
+Comprehensive automated code review.
+
+```python
+from pydantic_deep import create_code_review_workflow
+
+workflow = create_code_review_workflow(
+    workflow_id="my-review",
+    repository_path="/path/to/repo",
+    target_files=["src/*.py"],  # Optional, default all files
+    review_focus=["security", "quality", "documentation", "testing"],
+    generate_report=True,  # Optional, default True
+    auto_fix=False,        # Optional, default False
+)
+```
+
+**Features:**
+- Code structure analysis
+- Quality and best practices review
+- Security vulnerability check
+- Documentation completeness
+- Test coverage evaluation
+- Review report generation
+- Auto-fix simple issues (optional)
+
+**Tasks Created:**
+1. `analyze-code-structure` - Analyze structure
+2. `check-code-quality` - Quality review
+3. `security-review` - Security analysis (if in focus)
+4. `review-documentation` - Documentation review (if in focus)
+5. `evaluate-test-coverage` - Test evaluation (if in focus)
+6. `generate-review-report` - Create report (optional)
+7. `apply-auto-fixes` - Apply fixes (optional)
+8. `verify-fixes` - Verify fixes (optional)
+
+#### 4. Documentation Workflow
+
+Automated documentation generation.
+
+```python
+from pydantic_deep import create_documentation_workflow
+
+workflow = create_documentation_workflow(
+    workflow_id="my-docs",
+    repository_path="/path/to/repo",
+    doc_types=["api", "guide", "tutorial"],
+    output_format="markdown",  # or "rst", "html"
+    include_examples=True,
+)
+```
+
+**Features:**
+- Codebase structure analysis
+- API documentation generation
+- User guide creation
+- Tutorial development
+- Code examples generation
+- Documentation building
+
+**Tasks Created:**
+1. `analyze-codebase` - Analyze structure
+2. `generate-api-docs` - API docs (if in doc_types)
+3. `write-user-guide` - User guide (if in doc_types)
+4. `create-tutorial` - Tutorial (if in doc_types)
+5. `generate-examples` - Code examples (optional)
+6. `build-documentation` - Build final docs
+
+### Creating Custom Templates
+
+You can create your own workflow templates:
+
+```python
+from pydantic_deep.orchestration import (
+    WorkflowDefinition,
+    TaskDefinition,
+    ExecutionStrategy,
+    AgentCapability,
+)
+
+def create_my_custom_workflow(
+    workflow_id: str = "custom",
+    **kwargs
+) -> WorkflowDefinition:
+    """Create custom workflow template."""
+
+    tasks = [
+        TaskDefinition(
+            id="task1",
+            description="First task",
+            required_capabilities=[AgentCapability.GENERAL],
+        ),
+        TaskDefinition(
+            id="task2",
+            description="Second task",
+            depends_on=["task1"],
+        ),
+    ]
+
+    return WorkflowDefinition(
+        id=workflow_id,
+        name="My Custom Workflow",
+        tasks=tasks,
+        execution_strategy=ExecutionStrategy.DAG,
+        **kwargs
+    )
+```
+
+### Template Customization
+
+All templates accept additional workflow parameters:
+
+```python
+workflow = create_ci_cd_pipeline(
+    workflow_id="custom-ci",
+    # Template-specific params
+    run_security_scan=True,
+    deploy_target="production",
+    # Common workflow params
+    max_parallel_tasks=10,
+    default_timeout_seconds=300,
+    continue_on_failure=False,
+    metadata={"team": "platform", "environment": "prod"}
+)
+```
+
+### Benefits
+
+- **Rapid Development**: Create standard workflows in minutes
+- **Best Practices**: Templates embody recommended patterns
+- **Consistency**: Same structure across similar workflows
+- **Customizable**: All templates highly configurable
+- **Maintainable**: Update templates to improve all workflows
+
 ## Integration with pydantic-deep
 
 The orchestration system integrates seamlessly with existing pydantic-deep features:
@@ -635,14 +1014,22 @@ See example files for comprehensive demonstrations:
 - Strategy recommendations
 - Performance comparisons
 
+**`examples/metrics_and_templates_example.py`**:
+- Using workflow templates (CI/CD, ETL, Code Review, Documentation)
+- Automatic metrics collection
+- Performance analysis and reporting
+- Bottleneck identification
+- Aggregate statistics
+- Metrics-driven optimization
+
 ## Future Enhancements
 
 Potential future additions:
-- Workflow templates and reusable patterns
 - Visual workflow designer
-- Performance metrics and analytics
 - Distributed execution across multiple nodes
 - Workflow persistence and resumption
 - Event-driven workflow triggers
 - Resource constraints and quotas
 - Advanced condition expressions
+- Workflow versioning and rollback
+- Real-time monitoring dashboard
